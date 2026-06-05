@@ -1,0 +1,14 @@
+# Copy to config/github.config.yml (gitignored) OR set the matching env vars.
+git:
+  provider: ${GIT_PROVIDER:github}   # github | gitlab
+  github:
+    api-url: ${GITHUB_API_URL:https://api.github.com}
+    token: ${GITHUB_TOKEN:change-me}
+    org: ${GITHUB_ORG:your-org}
+  gitlab:
+    api-url: ${GITLAB_API_URL:https://gitlab.your-org.com/api/v4}
+    token: ${GITLAB_TOKEN:change-me}
+  # Repositories the agent tracks (one per product/service).
+  repositories:
+    - your-org/payments-service
+    - your-org/document-processing

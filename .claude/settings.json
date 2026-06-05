@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Read(//home/wolper/IdeaProjects/architecture-workspace/**)",
+      "Edit(//home/wolper/IdeaProjects/architecture-workspace/**)",
+      "Write(//home/wolper/IdeaProjects/architecture-workspace/**)",
+      "Bash(mvn:*)",
+      "Bash(./mvnw:*)",
+      "Bash(java:*)",
+      "Bash(docker:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker-compose:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(jqassistant:*)",
+      "Bash(./automation/*)"
+    ],
+    "deny": [
+      "Read(//home/wolper/IdeaProjects/architecture-workspace/.env)",
+      "Read(//home/wolper/IdeaProjects/architecture-workspace/config/*.config.yml)",
+      "Read(//home/wolper/IdeaProjects/architecture-workspace/**/*.token)",
+      "Read(//home/wolper/IdeaProjects/architecture-workspace/**/secrets/**)"
+    ]
+  },
+  "enableAllProjectMcpServers": false,
+  "enabledMcpjsonServers": [
+    "digital-twin-core",
+    "jira-mcp",
+    "github-mcp",
+    "sonar-mcp"
+  ]
+}

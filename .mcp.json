@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json.schemastore.org/mcp.json",
+  "mcpServers": {
+    "digital-twin-core": {
+      "type": "sse",
+      "url": "http://localhost:8080/sse",
+      "headers": {
+        "Authorization": "Bearer ${AIP_INTERNAL_TOKEN}"
+      }
+    },
+    "jira-mcp": {
+      "type": "sse",
+      "url": "http://localhost:8081/sse",
+      "headers": {
+        "Authorization": "Bearer ${AIP_INTERNAL_TOKEN}"
+      }
+    },
+    "github-mcp": {
+      "type": "sse",
+      "url": "http://localhost:8082/sse",
+      "headers": {
+        "Authorization": "Bearer ${AIP_INTERNAL_TOKEN}"
+      }
+    },
+    "sonar-mcp": {
+      "type": "sse",
+      "url": "http://localhost:8083/sse",
+      "headers": {
+        "Authorization": "Bearer ${AIP_INTERNAL_TOKEN}"
+      }
+    },
+    "structurizr-mcp": {
+      "type": "sse",
+      "url": "http://localhost:8084/sse",
+      "headers": {
+        "Authorization": "Bearer ${AIP_INTERNAL_TOKEN}"
+      }
+    },
+    "jqassistant-mcp": {
+      "type": "sse",
+      "url": "http://localhost:8085/sse",
+      "headers": {
+        "Authorization": "Bearer ${AIP_INTERNAL_TOKEN}"
+      }
+    },
+    "wiki-mcp": {
+      "type": "sse",
+      "url": "http://localhost:8086/sse",
+      "headers": {
+        "Authorization": "Bearer ${AIP_INTERNAL_TOKEN}"
+      }
+    },
+    "openspec-mcp": {
+      "type": "sse",
+      "url": "http://localhost:8087/sse",
+      "headers": {
+        "Authorization": "Bearer ${AIP_INTERNAL_TOKEN}"
+      }
+    },
+    "rag-mcp": {
+      "type": "sse",
+      "url": "http://localhost:8088/sse",
+      "headers": {
+        "Authorization": "Bearer ${AIP_INTERNAL_TOKEN}"
+      }
+    }
+  }
+}

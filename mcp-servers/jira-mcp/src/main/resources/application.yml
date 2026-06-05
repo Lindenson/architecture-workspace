@@ -1,0 +1,32 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: jira-mcp
+  config:
+    import: "optional:file:${AIP_CONFIG_DIR:./config}/jira.config.yml,optional:file:../config/jira.config.yml"
+  ai:
+    mcp:
+      server:
+        name: jira-mcp
+        version: 0.1.0
+        type: SYNC
+        sse-message-endpoint: /mcp/messages
+
+aip:
+  security:
+    internal-token: ${AIP_INTERNAL_TOKEN:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+jira:
+  base-url: ${JIRA_BASE_URL:https://your-org.atlassian.net}
+  email: ${JIRA_EMAIL:}
+  api-token: ${JIRA_API_TOKEN:}
+  project-keys: ${JIRA_PROJECT_KEYS:}
+  write-enabled: ${JIRA_WRITE_ENABLED:false}

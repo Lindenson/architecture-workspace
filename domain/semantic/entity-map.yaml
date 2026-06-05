@@ -1,0 +1,57 @@
+# Entity Map (L3 semantic) — EXAMPLE / STARTER TEMPLATE
+#
+# Maps domain entities -> persistence tables -> bounded contexts -> aggregate.
+# This is the SEMANTIC layer: initial inference from naming/JPA/DB. It is
+# validated and promoted into domain/model/ (L4). Auto-generation should
+# overwrite this; hand edits are seeds only.
+#
+# Source inputs: domain/raw/jpa-model, domain/raw/db-schema, domain/raw/jqa-graph
+# TODO: replace example mappings with extracted facts.
+
+version: 1
+status: template            # template | inferred | validated
+generatedFrom: manual-seed  # manual-seed | jqassistant+db | ...
+
+contexts:
+  Payments:
+    entities:
+      - entity: Payment
+        table: payment
+        aggregate: Payment        # aggregate root
+        confidence: HIGH
+      - entity: PaymentAttempt
+        table: payment_attempt
+        aggregate: Payment        # part of the Payment aggregate
+        confidence: MEDIUM
+  Ledger:
+    entities:
+      - entity: LedgerAccount
+        table: ledger_account
+        aggregate: LedgerAccount  # aggregate root
+        confidence: HIGH
+      - entity: LedgerEntry
+        table: ledger_entry
+        aggregate: LedgerAccount  # entries belong to an account
+        confidence: HIGH
+  DocumentIngestion:
+    entities:
+      - entity: Document
+        table: document
+        aggregate: Document       # aggregate root
+        confidence: HIGH
+      - entity: ExtractionResult
+        table: extraction_result
+        aggregate: Document
+        confidence: MEDIUM
+  IdentityKyc:
+    entities:
+      - entity: Customer
+        table: customer
+        aggregate: Customer
+        confidence: HIGH
+
+# Drift hints the pipeline should flag (see domain/drift/README.md):
+#   - entity without an aggregate
+#   - table without an entity
+#   - DTO referencing an entity (persistence leak)
+#   - cross-context table reference / FK

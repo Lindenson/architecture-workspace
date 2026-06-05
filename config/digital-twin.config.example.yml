@@ -1,0 +1,18 @@
+# Copy to config/digital-twin.config.yml (gitignored) OR set the matching env vars.
+# The orchestrator fans out to the other MCP servers over HTTP.
+digital-twin:
+  internal-token: ${AIP_INTERNAL_TOKEN:change-me-internal-token}
+  downstream:
+    jira-mcp: http://localhost:${PORT_JIRA_MCP:8081}
+    github-mcp: http://localhost:${PORT_GITHUB_MCP:8082}
+    sonar-mcp: http://localhost:${PORT_SONAR_MCP:8083}
+    structurizr-mcp: http://localhost:${PORT_STRUCTURIZR_MCP:8084}
+    jqassistant-mcp: http://localhost:${PORT_JQASSISTANT_MCP:8085}
+    wiki-mcp: http://localhost:${PORT_WIKI_MCP:8086}
+    rag-mcp: http://localhost:${PORT_RAG_MCP:8088}
+  # Cache TTLs (seconds) — see MCP_ORCHESTRATION_MAP cache strategy.
+  cache:
+    jqassistant-graph: 86400   # 24h
+    sonar-snapshot: 43200      # 12h
+    jira-snapshot: 3600        # 1h
+    code-state: 0              # never cache code

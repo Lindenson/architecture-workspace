@@ -1,0 +1,36 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: digital-twin-core
+  config:
+    import: "optional:file:${AIP_CONFIG_DIR:./config}/digital-twin.config.yml,optional:file:../config/digital-twin.config.yml"
+  ai:
+    mcp:
+      server:
+        name: digital-twin-core
+        version: 0.1.0
+        type: SYNC
+        sse-message-endpoint: /mcp/messages
+
+aip:
+  security:
+    internal-token: ${AIP_INTERNAL_TOKEN:}
+
+digital-twin:
+  internal-token: ${AIP_INTERNAL_TOKEN:}
+  downstream:
+    jira-mcp: ${PORT_JIRA_URL:http://localhost:8081}
+    github-mcp: ${PORT_GITHUB_URL:http://localhost:8082}
+    sonar-mcp: ${PORT_SONAR_URL:http://localhost:8083}
+    structurizr-mcp: ${PORT_STRUCTURIZR_URL:http://localhost:8084}
+    jqassistant-mcp: ${PORT_JQA_URL:http://localhost:8085}
+    wiki-mcp: ${PORT_WIKI_URL:http://localhost:8086}
+    rag-mcp: ${PORT_RAG_URL:http://localhost:8088}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

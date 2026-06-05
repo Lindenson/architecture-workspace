@@ -1,0 +1,9 @@
+# Copy to config/jira.config.yml (gitignored) OR set the matching env vars.
+jira:
+  base-url: ${JIRA_BASE_URL:https://your-org.atlassian.net}
+  email: ${JIRA_EMAIL:you@your-org.com}
+  api-token: ${JIRA_API_TOKEN:change-me}
+  # Comma-separated project keys the agent is allowed to read/write.
+  project-keys: ${JIRA_PROJECT_KEYS:PAY,DOC}
+  # Hard guardrail: the agent may only create drafts/comments unless write=true.
+  write-enabled: false

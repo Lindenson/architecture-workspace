@@ -1,0 +1,36 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: github-mcp
+  config:
+    import: "optional:file:${AIP_CONFIG_DIR:./config}/github.config.yml,optional:file:../config/github.config.yml"
+  ai:
+    mcp:
+      server:
+        name: github-mcp
+        version: 0.1.0
+        type: SYNC
+        sse-message-endpoint: /mcp/messages
+
+git:
+  provider: ${GIT_PROVIDER:github}
+  github:
+    api-url: ${GITHUB_API_URL:https://api.github.com}
+    token: ${GITHUB_TOKEN:}
+    org: ${GITHUB_ORG:}
+  gitlab:
+    api-url: ${GITLAB_API_URL:}
+    token: ${GITLAB_TOKEN:}
+  repositories: ${GIT_REPOSITORIES:}
+
+aip:
+  security:
+    internal-token: ${AIP_INTERNAL_TOKEN:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

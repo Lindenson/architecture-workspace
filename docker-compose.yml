@@ -1,0 +1,151 @@
+# ============================================================================
+#  Architecture Intelligence Platform — local infra & MVP-1 MCP servers
+# ----------------------------------------------------------------------------
+#  PREREQUISITES (run these first):
+#    1. Build the MCP server jars:
+#         cd mcp-servers && mvn -DskipTests package
+#       (each module produces target/<module>.jar via <finalName>)
+#    2. Provide secrets:
+#         cp .env.example .env   # then edit .env
+#
+#  USAGE:
+#    docker compose up -d postgres neo4j   # infra only
+#    docker compose up -d                  # infra + all MVP-1 MCP servers
+#
+#  The MCP servers run the prebuilt jars on a stock JRE image (no in-container
+#  Maven build) — rebuild + `docker compose restart <svc>` to pick up changes.
+#  All secrets come from .env (env_file); none are baked into this file.
+# ============================================================================
+
+services:
+
+  # --- PostgreSQL + pgvector: Digital Twin store + RAG vector store ---------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: aip-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-architecture_ai}
+      POSTGRES_USER: ${POSTGRES_USER:-aip}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-db-password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Idempotent schema bootstrap — only runs on first init of an empty volume.
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aip} -d ${POSTGRES_DB:-architecture_ai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Neo4j: jQAssistant architecture graph (MVP-2) ------------------------
+  neo4j:
+    image: neo4j:5-community
+    container_name: aip-neo4j
+    restart: unless-stopped
+    environment:
+      # NEO4J_AUTH expects the "user/password" form.
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-change-me-neo4j-password}
+    ports:
+      - "7474:7474"   # HTTP browser
+      - "7687:7687"   # Bolt
+    volumes:
+      - neo4j-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:7474 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # --- jira-mcp: DELIVERY_STATE source -------------------------------------
+  jira-mcp:
+    image: eclipse-temurin:21-jre
+    container_name: aip-jira-mcp
+    restart: unless-stopped
+    env_file: .env
+    working_dir: /app
+    environment:
+      AIP_CONFIG_DIR: /config
+    volumes:
+      - ./mcp-servers/jira-mcp/target:/app
+      - ./config:/config:ro
+    command: ["java", "-jar", "/app/jira-mcp.jar"]
+    ports:
+      - "${PORT_JIRA_MCP:-8081}:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # --- github-mcp: CODE_STATE / CHANGESET_STATE source ----------------------
+  github-mcp:
+    image: eclipse-temurin:21-jre
+    container_name: aip-github-mcp
+    restart: unless-stopped
+    env_file: .env
+    working_dir: /app
+    environment:
+      AIP_CONFIG_DIR: /config
+    volumes:
+      - ./mcp-servers/github-mcp/target:/app
+      - ./config:/config:ro
+    command: ["java", "-jar", "/app/github-mcp.jar"]
+    ports:
+      - "${PORT_GITHUB_MCP:-8082}:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # --- sonar-mcp: QUALITY_STATE / DEBT_STATE source -------------------------
+  sonar-mcp:
+    image: eclipse-temurin:21-jre
+    container_name: aip-sonar-mcp
+    restart: unless-stopped
+    env_file: .env
+    working_dir: /app
+    environment:
+      AIP_CONFIG_DIR: /config
+    volumes:
+      - ./mcp-servers/sonar-mcp/target:/app
+      - ./config:/config:ro
+    command: ["java", "-jar", "/app/sonar-mcp.jar"]
+    ports:
+      - "${PORT_SONAR_MCP:-8083}:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # --- digital-twin-core: orchestrator → DIGITAL_TWIN_MODEL -----------------
+  digital-twin-core:
+    image: eclipse-temurin:21-jre
+    container_name: aip-digital-twin-core
+    restart: unless-stopped
+    env_file: .env
+    working_dir: /app
+    environment:
+      AIP_CONFIG_DIR: /config
+      # Service-name DNS so the orchestrator fans out to the other containers
+      # (overrides the localhost defaults in digital-twin application.yml).
+      PORT_JIRA_URL: http://jira-mcp:8081
+      PORT_GITHUB_URL: http://github-mcp:8082
+      PORT_SONAR_URL: http://sonar-mcp:8083
+    volumes:
+      - ./mcp-servers/digital-twin-core/target:/app
+      - ./config:/config:ro
+    command: ["java", "-jar", "/app/digital-twin-core.jar"]
+    ports:
+      - "${PORT_DIGITAL_TWIN:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      jira-mcp:
+        condition: service_started
+      github-mcp:
+        condition: service_started
+      sonar-mcp:
+        condition: service_started
+
+volumes:
+  postgres-data:
+  neo4j-data:

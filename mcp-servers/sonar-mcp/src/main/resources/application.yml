@@ -1,0 +1,30 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: sonar-mcp
+  config:
+    import: "optional:file:${AIP_CONFIG_DIR:./config}/sonar.config.yml,optional:file:../config/sonar.config.yml"
+  ai:
+    mcp:
+      server:
+        name: sonar-mcp
+        version: 0.1.0
+        type: SYNC
+        sse-message-endpoint: /mcp/messages
+
+sonar:
+  base-url: ${SONAR_BASE_URL:https://sonar.your-org.com}
+  token: ${SONAR_TOKEN:}
+  project-keys: ${SONAR_PROJECT_KEYS:}
+
+aip:
+  security:
+    internal-token: ${AIP_INTERNAL_TOKEN:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

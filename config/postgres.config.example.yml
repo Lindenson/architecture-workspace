@@ -1,0 +1,7 @@
+# Copy to config/postgres.config.yml (gitignored) OR set the matching env vars.
+# Dedicated AI/architecture database — NOT the product business database.
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:architecture_ai}
+    username: ${POSTGRES_USER:aip}
+    password: ${POSTGRES_PASSWORD:change-me}

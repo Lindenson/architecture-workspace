@@ -1,0 +1,8 @@
+# Copy to config/sonar.config.yml (gitignored) OR set the matching env vars.
+sonar:
+  base-url: ${SONAR_BASE_URL:https://sonar.your-org.com}
+  token: ${SONAR_TOKEN:change-me}
+  # Project keys in SonarQube to aggregate quality from.
+  project-keys:
+    - payments-service
+    - document-processing

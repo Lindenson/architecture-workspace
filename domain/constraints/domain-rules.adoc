@@ -1,0 +1,57 @@
+= Domain Constraints (L5 — Governance)
+:toc: macro
+:status: starter template
+
+[NOTE]
+====
+STATUS: starter template. Textual, enforceable domain constraints derived from
+the validated model (`../model/domain-rules.md`). These are checked by ArchUnit
+(`archunit-domain-rules.java`), jQAssistant, and tests. EXAMPLE set — TODO: refine.
+====
+
+toc::[]
+
+== Aggregate boundaries
+
+* An aggregate may be modified *only through its root*. External code must not
+  mutate non-root members directly.
+* A repository exists *per aggregate root only*. No repository for inner entities.
+* Cross-aggregate references are *by identity* (id), never by object navigation
+  across aggregates.
+
+== Bounded context boundaries
+
+* A bounded context must not access another context's *repositories or tables*.
+* Cross-context interaction is via the other context's *service interface*
+  (in-process) or *async events* (Kafka) — see `../../architecture/constraints/integration.md`.
+* No foreign keys cross context boundaries; reference by id + event.
+
+== Persistence / API separation
+
+* A *DTO must not reference a persistence Entity* (no leaking JPA types across
+  the API boundary).
+* Entities must not be returned from controllers (see
+  `../../architecture/standards/persistence-standards.md`).
+
+== Invariant enforcement (examples)
+
+* Ledger entries are append-only (enforced in domain + DB constraints).
+* A Payment cannot be settled twice (state machine + unique idempotency key).
+* Documents are immutable; new version => new object.
+
+== Drift signals (report, do not silently fix)
+
+See `../drift/README.md`. Examples: entity without aggregate; table without
+entity; DTO leaking persistence; cross-context dependency; inconsistent naming;
+orphan migration.
+
+== Enforcement mapping
+
+[cols="1,1", options="header"]
+|===
+| Constraint | Mechanism
+| Aggregate root-only modification | ArchUnit + review
+| DTO ↛ Entity | ArchUnit (`archunit-domain-rules.java`)
+| No cross-context access | ArchUnit slices + jQAssistant
+| Append-only ledger | Domain logic + DB constraint
+|===
