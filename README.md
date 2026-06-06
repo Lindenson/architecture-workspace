@@ -37,7 +37,9 @@
 - [Repository layout](#-repository-layout)
 - [Quick start](#-quick-start)
 - [MCP servers](#-mcp-servers)
+- [Talking to the agent](#-talking-to-the-agent-runtime-commands)
 - [Skills & subagents](#-skills--subagents)
+- [Verified](#-verified)
 - [Governance documents](#-governance-documents)
 - [Roadmap](#-roadmap)
 - [Security](#-security)
@@ -160,11 +162,15 @@ architecture-workspace/
 ├── automation/           Nightly pipeline & scan scripts
 ├── config/              Credential templates (real files gitignored)
 ├── jqassistant/          Scan rules & reports — MVP-2
-├── mcp-servers/          Java Spring Boot MCP servers
+├── mcp-servers/          Java Spring Boot MCP servers (Maven reactor)
 │   ├── mcp-common/         Shared MCP protocol layer + auth + REST client factory
-│   ├── jira-mcp/           Delivery source
-│   ├── github-mcp/         Code source (GitHub & GitLab)
-│   ├── sonar-mcp/          Quality source
+│   ├── jira-mcp/           Delivery source        (MVP-1)
+│   ├── github-mcp/         Code source GitHub/GitLab (MVP-1)
+│   ├── sonar-mcp/          Quality source         (MVP-1)
+│   ├── jqassistant-mcp/    Architecture graph (Neo4j) (MVP-2)
+│   ├── structurizr-mcp/    C4 model (workspace.dsl)   (MVP-2)
+│   ├── rag-mcp/            Knowledge/RAG (pgvector)   (MVP-3, optional)
+│   ├── wiki-mcp/           Confluence knowledge       (MVP-3, optional)
 │   └── digital-twin-core/  Orchestrator → DIGITAL_TWIN_MODEL
 ├── architecture-tests/   ArchUnit enforcement module (template for product repos)
 ├── db/                   pgvector schema (db/init.sql)
@@ -183,15 +189,15 @@ architecture-workspace/
 # 1. Secrets — copy the template and fill in your tokens
 cp .env.example .env && $EDITOR .env
 
-# 2. Infra (Postgres+pgvector for RAG/knowledge, Neo4j for jQAssistant graph)
+# 2. Infra (Postgres+pgvector for the knowledge store, Neo4j for the jQAssistant graph)
 docker compose up -d postgres neo4j
 
-# 3. Build the MVP-1 MCP servers
+# 3. Build all MCP servers (one Maven reactor → 9 jars)
 cd mcp-servers && mvn -DskipTests package && cd ..
 
 # 4. Run the servers (locally or via docker)
 ./automation/run-mcp-servers.sh        # or: docker compose up -d
-./automation/health-check.sh           # verify :8080-:8083 are UP
+./automation/health-check.sh           # verify the servers are UP
 
 # 5. Open this folder in Claude — .mcp.json wires the servers automatically.
 ```
@@ -201,6 +207,23 @@ Then ask the agent:
 ```
 SHOW PROJECT STATE
 ```
+
+### Enabling the optional knowledge layer (RAG + Wiki)
+
+Off by default. To turn it on for a project:
+
+```bash
+# in .env
+KNOWLEDGE_ENABLED=true
+RAG_EMBEDDINGS_PROVIDER=local      # local (offline, no key) | openai | none
+
+docker compose --profile knowledge up -d      # also starts rag-mcp + wiki-mcp
+# index the workspace docs once:
+curl -XPOST -H "Authorization: Bearer $AIP_INTERNAL_TOKEN" http://localhost:8088/api/rag/reindex
+```
+
+Leave `KNOWLEDGE_ENABLED=false` (default) and the platform runs fully without it —
+the knowledge slice simply reports `DISABLED` and never lowers confidence.
 
 ---
 
@@ -221,6 +244,27 @@ Secrets come from `.env` / `config/*.config.yml` (gitignored). See
 | `rag-mcp`          | 8088 | ✅ MVP-3 *(optional)* | Postgres + pgvector | `CONTEXT_PACKS`     |
 | `wiki-mcp`         | 8086 | ✅ MVP-3 *(optional)* | Confluence / Wiki   | `KNOWLEDGE_DOCUMENTS` |
 | `openspec-mcp`     | 8087 | 🔜 MVP-4    | OpenSpec repo       | `DESIGN_CONTRACTS`     |
+
+---
+
+## 💬 Talking to the agent (runtime commands)
+
+The agent runs a small set of explicit commands (see
+[`.claude/AGENT_RUNTIME.md`](.claude/AGENT_RUNTIME.md)). Each fans out to the
+right MCP servers, merges the result into the digital twin, and answers with
+*sources + confidence + recommendations*.
+
+| Ask | Command | What you get |
+|-----|---------|--------------|
+| "Show project state" | `SHOW_PROJECT_STATE` | Consolidated delivery + code + quality + debt + architecture (+ knowledge if on) with risks & recommendations |
+| "Rescan the architecture" | `RUN_ARCHITECTURE_RESCAN` | jQAssistant cycles/layering + Structurizr C4 + drift signals |
+| "Analyze the tech debt" | `ANALYZE_TECH_DEBT` | Sonar debt mapped to modules, prioritized, linked to ADRs/Jira |
+| "Are we ready to release?" | `ANALYZE_RELEASE_READINESS` | `READY` / `READY_WITH_RISKS` / `NOT_READY` with reasons |
+| "Refresh the knowledge base" | `UPDATE_KNOWLEDGE_BASE` | RAG reindex + wiki sync (or `DISABLED` if the layer is off) |
+| "Generate the daily/weekly report" | `GENERATE_REPORT` | Markdown report in `reports/` |
+
+Or invoke a **skill** directly (e.g. `/architecture-review`, `/release-readiness-review`,
+`/tech-debt-review`, `/project-state-review`).
 
 ---
 
@@ -256,9 +300,28 @@ The agent contract lives in `.claude/`:
 
 ---
 
+## ✅ Verified
+
+Every shipped MVP was built and exercised, not just written:
+
+- **Build:** one Maven reactor compiles & packages **9 jars**; all module
+  `contextLoads` tests pass.
+- **MCP/SSE:** servers boot in ~1 s, register their tools (e.g. jira-mcp 11,
+  rag-mcp 6), serve `/sse` (401 without the internal token, 200 `text/event-stream`
+  with it), and expose `/actuator/health`.
+- **Resilience:** every server boots and degrades gracefully when its upstream is
+  down (Jira/GitHub/Sonar/Neo4j/Postgres unreachable → `DATA_STALE`, never a crash).
+- **Architecture (MVP-2):** structurizr-mcp parsed the real `workspace.dsl`
+  (1 system, 7 containers, 4 components, 19 relationships, 3 views).
+- **RAG (MVP-3):** against Postgres+pgvector with **local ONNX embeddings**,
+  reindexed **41 files → 84 chunks** and returned ranked, cited vector-search hits;
+  with the layer off, the knowledge slice reports `DISABLED`.
+
+---
+
 ## 🗺 Roadmap
 
-### ✅ Done — MVP-1 (this release)
+### ✅ Done — MVP-1 (foundation)
 - Full governance contract, 16 skills, 7 subagents
 - Knowledge / architecture / quality / delivery / history / domain hierarchy (seeded templates)
 - **Working** Spring Boot MCP servers: `jira-mcp`, `github-mcp`, `sonar-mcp`, `digital-twin-core`
