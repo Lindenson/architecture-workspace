@@ -4,7 +4,7 @@
 
 **A living digital twin of your software system — and the workspace that turns Claude into a Chief Enterprise Architect.**
 
-[![Status](https://img.shields.io/badge/status-MVP--2%20working-success)](#-roadmap)
+[![Status](https://img.shields.io/badge/status-MVP--3%20working-success)](#-roadmap)
 [![Java](https://img.shields.io/badge/Java-21-orange)](https://openjdk.org/projects/jdk/21/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4-brightgreen)](https://spring.io/projects/spring-boot)
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-1.0%20MCP-blue)](https://docs.spring.io/spring-ai/reference/api/mcp/mcp-overview.html)
@@ -89,8 +89,9 @@ checking each tool.**
                   /api/state │          │          │ /api/state
               ┌──────────────▼┐   ┌─────▼──────┐  ┌▼─────────────┐
               │  jira-mcp :8081│   │github :8082│  │ sonar  :8083 │   + jqassistant :8085,
-              │  DELIVERY_STATE│   │ CODE_STATE │  │QUALITY/DEBT  │     structurizr :8084 (live);
-              └───────┬────────┘   └─────┬──────┘  └──────┬───────┘     planned: wiki, openspec, rag
+              │  DELIVERY_STATE│   │ CODE_STATE │  │QUALITY/DEBT  │     structurizr :8084,
+              └───────┬────────┘   └─────┬──────┘  └──────┬───────┘     rag :8088 + wiki :8086
+                                                                        (optional); planned: openspec
                       │                  │                │
                  ┌────▼───┐         ┌────▼────┐      ┌─────▼─────┐
                  │  Jira  │         │ GitHub/ │      │ SonarQube │
@@ -217,8 +218,8 @@ Secrets come from `.env` / `config/*.config.yml` (gitignored). See
 | `sonar-mcp`        | 8083 | ✅ MVP-1    | SonarQube Web API   | `QUALITY_STATE`, debt  |
 | `structurizr-mcp`  | 8084 | ✅ MVP-2    | Structurizr DSL (C4) | `ARCHITECTURE_MODEL`  |
 | `jqassistant-mcp`  | 8085 | ✅ MVP-2    | Neo4j (jQAssistant) | `ARCHITECTURE_GRAPH`   |
-| `rag-mcp`          | 8088 | 🔜 MVP-3    | Postgres + pgvector | `CONTEXT_PACKS`        |
-| `wiki-mcp`         | 8086 | 🔜 MVP-3    | Confluence / Wiki   | `KNOWLEDGE_DOCUMENTS`  |
+| `rag-mcp`          | 8088 | ✅ MVP-3 *(optional)* | Postgres + pgvector | `CONTEXT_PACKS`     |
+| `wiki-mcp`         | 8086 | ✅ MVP-3 *(optional)* | Confluence / Wiki   | `KNOWLEDGE_DOCUMENTS` |
 | `openspec-mcp`     | 8087 | 🔜 MVP-4    | OpenSpec repo       | `DESIGN_CONTRACTS`     |
 
 ---
@@ -274,9 +275,16 @@ The agent contract lives in `.claude/`:
   (jQAssistant + Structurizr) and surfaces drift signals; architecture state is
   live in `SHOW_PROJECT_STATE`
 
-### 🔜 MVP-3 — Knowledge & RAG
-- `rag-mcp` (Postgres + pgvector retrieval over ADRs, wiki, code docs, project memory)
-- `wiki-mcp` (Confluence sync)
+### ✅ Done — MVP-3 (knowledge & RAG — **optional, configurable**)
+- `rag-mcp` — Postgres + pgvector retrieval over ADRs, wiki, code docs, project
+  memory. **Pluggable embeddings**: `local` (offline ONNX all-MiniLM-L6-v2,
+  no API key — default), `openai` (any OpenAI-compatible endpoint), or `none`
+  (Postgres full-text only). Owns its dimension-sized table.
+- `wiki-mcp` — Confluence read/search/(gated)update.
+- **Optional by design**: off by default. The whole platform runs fully without
+  it; when off, the knowledge slice is reported `DISABLED` and never lowers
+  confidence. Enable per-project with `KNOWLEDGE_ENABLED=true` +
+  `docker compose --profile knowledge up -d`.
 
 ### 🔜 MVP-4 — Event-driven twin
 - Event bridge: `Git push → scan → jQAssistant → Sonar → Structurizr → RAG reindex → report → Jira update`

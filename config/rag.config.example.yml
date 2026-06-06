@@ -1,0 +1,22 @@
+# Copy to config/rag.config.yml (gitignored) OR set the matching env vars.
+# rag-mcp is OPTIONAL. Disable entirely with rag.enabled=false (or just don't
+# start the server / leave the knowledge feature off in digital-twin).
+rag:
+  enabled: ${RAG_ENABLED:true}
+  embeddings:
+    # local  -> offline ONNX all-MiniLM-L6-v2 (384 dims), no API key needed
+    # openai -> any OpenAI-compatible endpoint (OpenAI, Ollama, LM Studio, …)
+    # none   -> no vectors, Postgres full-text search only
+    provider: ${RAG_EMBEDDINGS_PROVIDER:local}
+    dimension: ${RAG_EMBEDDINGS_DIMENSION:384}
+    table: ${RAG_EMBEDDINGS_TABLE:rag_chunks}
+    openai:
+      base-url: ${RAG_OPENAI_BASE_URL:https://api.openai.com/v1}
+      api-key: ${RAG_OPENAI_API_KEY:}
+      model: ${RAG_OPENAI_MODEL:text-embedding-3-small}
+  # Workspace dirs to index (relative to repo root).
+  sources: ${RAG_SOURCES:knowledge,architecture,history,project-memory,domain/model,delivery/roadmap}
+  chunk:
+    max-chars: ${RAG_CHUNK_MAX_CHARS:1200}
+    overlap: ${RAG_CHUNK_OVERLAP:150}
+  top-k: ${RAG_TOP_K:6}

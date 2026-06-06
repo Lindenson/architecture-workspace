@@ -37,4 +37,12 @@ public record McpResponse(
     public static McpResponse error(String source, String message) {
         return new McpResponse(null, McpStatus.ERROR, source, Confidence.LOW, message, Instant.now());
     }
+
+    /**
+     * The capability is intentionally disabled for this project (not a failure).
+     * Orchestrators must not count this against confidence or as a stale source.
+     */
+    public static McpResponse disabled(String source, String reason) {
+        return new McpResponse(null, McpStatus.DISABLED, source, Confidence.HIGH, reason, Instant.now());
+    }
 }

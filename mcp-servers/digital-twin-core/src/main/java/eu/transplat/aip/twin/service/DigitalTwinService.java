@@ -9,6 +9,7 @@ import eu.transplat.aip.twin.domain.ArchitectureSlice;
 import eu.transplat.aip.twin.domain.ArchitectureSnapshot;
 import eu.transplat.aip.twin.domain.DigitalTwinModel;
 import eu.transplat.aip.twin.domain.DownstreamSlice;
+import eu.transplat.aip.twin.domain.KnowledgeSlice;
 import eu.transplat.aip.twin.domain.ReleaseReadiness;
 import eu.transplat.aip.twin.domain.SubState;
 import eu.transplat.aip.twin.domain.TechDebtReport;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,13 +35,19 @@ import java.util.Map;
  * non-critical slices are stale, HIGH only when every live slice is OK. A single
  * downstream being down never fails the whole call.
  *
- * <p>CONFIDENCE RULE (MVP-2): the CRITICAL slices are <b>delivery (jira-mcp)</b>
+ * <p>CONFIDENCE RULE: the CRITICAL slices are <b>delivery (jira-mcp)</b>
  * and <b>quality/debt (sonar-mcp)</b> — if either is stale, overall confidence is
  * LOW. The architecture sources (<b>jqassistant-mcp</b> graph + <b>structurizr-mcp</b>
  * C4 model) are NON-CRITICAL: now that they are live they participate in the
  * snapshot and, when stale, contribute to MEDIUM and to {@code staleSources}, but
- * they NEVER force LOW. Code (github-mcp) is also non-critical. Knowledge
- * (wiki/rag) remains a planned MVP-3 placeholder and never affects confidence.
+ * they NEVER force LOW. Code (github-mcp) is also non-critical.
+ *
+ * <p>KNOWLEDGE (rag-mcp + wiki-mcp) is an OPTIONAL layer, OFF by default
+ * ({@code digital-twin.features.knowledge.enabled=false}). When disabled the
+ * knowledge slice carries {@link McpStatus#DISABLED}. When enabled it is
+ * NON-CRITICAL (stale ⇒ MEDIUM, never LOW). Slices whose status is
+ * {@code DISABLED} are IGNORED entirely for confidence: they do not lower
+ * confidence and must not appear in {@code staleSources}.
  */
 @Service
 public class DigitalTwinService {
@@ -228,11 +236,49 @@ public class DigitalTwinService {
         }
     }
 
-    @Tool(description = "UPDATE_KNOWLEDGE_BASE: refresh the RAG knowledge index. The RAG layer is planned (MVP-3) "
-            + "and not yet running, so this returns DATA_STALE.")
+    @Tool(description = "UPDATE_KNOWLEDGE_BASE: refresh the knowledge layer — trigger a rag-mcp reindex and "
+            + "re-read the wiki-mcp state, returning a KNOWLEDGE_UPDATE_REPORT. The knowledge layer is OPTIONAL "
+            + "and OFF by default; when disabled this returns status DISABLED (not an error).")
     public McpResponse updateKnowledgeBase() {
-        return McpResponse.stale(Map.of("knowledgeState", "PLANNED"), SOURCE,
-                "RAG layer planned (MVP-3): rag-mcp not running.");
+        try {
+            if (!properties.getFeatures().getKnowledge().isEnabled()) {
+                return McpResponse.disabled(SOURCE, KNOWLEDGE_DISABLED_MESSAGE);
+            }
+            DownstreamSlice ragReindex = reindexRag();
+            DownstreamSlice wiki = fetchWiki();
+
+            Map<String, Object> ragReport = new LinkedHashMap<>();
+            ragReport.put("status", ragReindex.status());
+            ragReport.put("source", ragReindex.source());
+            ragReport.put("data", ragReindex.data());
+            ragReport.put("message", ragReindex.message());
+
+            Map<String, Object> wikiReport = new LinkedHashMap<>();
+            wikiReport.put("status", wiki.status());
+            wikiReport.put("source", wiki.source());
+            wikiReport.put("data", wiki.data());
+            wikiReport.put("message", wiki.message());
+
+            Map<String, Object> report = new LinkedHashMap<>();
+            report.put("ragReindex", ragReport);
+            report.put("wiki", wikiReport);
+            report.put("generatedAt", Instant.now());
+
+            // Same confidence rule: DISABLED downstreams are ignored; knowledge is
+            // NON-CRITICAL so any non-DISABLED stale source yields MEDIUM at worst,
+            // and HIGH only when every active source is OK.
+            List<DownstreamSlice> active = ignoreDisabled(List.of(ragReindex, wiki));
+            boolean anyStale = active.stream().anyMatch(s -> !s.isOk());
+            if (anyStale) {
+                return new McpResponse(report, McpStatus.DATA_STALE, SOURCE, Confidence.MEDIUM,
+                        "Knowledge update completed with stale inputs: "
+                                + staleLabels(List.of(ragReindex, wiki)), Instant.now());
+            }
+            return McpResponse.ok(report, SOURCE, Confidence.HIGH);
+        } catch (Exception e) {
+            log.warn("updateKnowledgeBase failed unexpectedly: {}", e.toString());
+            return McpResponse.error(SOURCE, "updateKnowledgeBase failed: " + e.getMessage());
+        }
     }
 
     // ----------------------------------------------------------- model build
@@ -257,15 +303,36 @@ public class DigitalTwinService {
         McpStatus archStatus = arch.isOk() ? McpStatus.OK : McpStatus.DATA_STALE;
         SubState architecture = new SubState("architecture", archStatus,
                 "jqassistant-mcp + structurizr-mcp", arch);
-        SubState knowledge = new SubState("knowledge", McpStatus.DATA_STALE,
-                "wiki-mcp/rag-mcp", "planned (MVP-3): server not running");
 
-        // CONFIDENCE RULE (MVP-2): critical = delivery (jira) + quality/debt (sonar).
-        // Non-critical = code (github) + architecture (jqassistant graph + structurizr
-        // C4 model). A stale architecture source contributes to MEDIUM and to
-        // staleSources but never forces LOW.
-        List<DownstreamSlice> critical = List.of(sonar, jira);
-        List<DownstreamSlice> nonCritical = List.of(github, jqa, structurizr);
+        // KNOWLEDGE_STATE: optional, OFF by default. When disabled, emit a single
+        // DISABLED slice (not a failure) — it is excluded from confidence and from
+        // staleSources. When enabled, fan out to rag-mcp + wiki-mcp lazily and
+        // combine them like ArchitectureSlice, carrying any downstream DISABLED
+        // status through unchanged.
+        boolean knowledgeEnabled = properties.getFeatures().getKnowledge().isEnabled();
+        DownstreamSlice rag = knowledgeEnabled ? fetchRag() : null;
+        DownstreamSlice wiki = knowledgeEnabled ? fetchWiki() : null;
+        SubState knowledge = knowledgeEnabled
+                ? knowledgeSubState(rag, wiki)
+                : disabledKnowledgeSubState();
+
+        // CONFIDENCE RULE: critical = delivery (jira) + quality/debt (sonar).
+        // Non-critical = code (github) + architecture (jqassistant graph +
+        // structurizr C4 model) + knowledge (rag + wiki, when enabled). A stale
+        // non-critical source contributes to MEDIUM and to staleSources but never
+        // forces LOW.
+        //
+        // DISABLED slices are IGNORED ENTIRELY: they do not lower confidence and
+        // must NOT appear in staleSources. We therefore filter them out before
+        // scoring (aggregateConfidence treats only OK as "ok") and never add a
+        // DISABLED source to staleSources.
+        List<DownstreamSlice> critical = ignoreDisabled(List.of(sonar, jira));
+        List<DownstreamSlice> nonCritical = new ArrayList<>(List.of(github, jqa, structurizr));
+        if (knowledgeEnabled) {
+            nonCritical.add(rag);
+            nonCritical.add(wiki);
+        }
+        nonCritical = ignoreDisabled(nonCritical);
         Confidence confidence = aggregateConfidence(critical, nonCritical);
 
         List<String> staleSources = new ArrayList<>();
@@ -274,8 +341,10 @@ public class DigitalTwinService {
         addIfStale(staleSources, sonar, "sonar-mcp");
         addIfStale(staleSources, jqa, "jqassistant-mcp");
         addIfStale(staleSources, structurizr, "structurizr-mcp");
-        // Knowledge is still a planned MVP-3 placeholder.
-        staleSources.add("wiki-mcp/rag-mcp (planned MVP-3)");
+        if (knowledgeEnabled) {
+            addIfStale(staleSources, rag, "rag-mcp");
+            addIfStale(staleSources, wiki, "wiki-mcp");
+        }
 
         List<String> recommendations = buildRecommendations(sonar, jira);
         recommendations.addAll(buildArchitectureRecommendations(jqa, structurizr));
@@ -288,8 +357,9 @@ public class DigitalTwinService {
      * Resilience rule: HIGH only when every live slice is OK; LOW if any critical
      * live slice is stale; MEDIUM if only non-critical live slices are stale.
      * Critical = delivery (jira) + quality/debt (sonar). Non-critical = code
-     * (github) + architecture (jqassistant + structurizr). The planned knowledge
-     * placeholder is excluded entirely and never forces LOW.
+     * (github) + architecture (jqassistant + structurizr) + knowledge (rag + wiki,
+     * when enabled). Callers must pre-filter DISABLED slices (see
+     * {@link #ignoreDisabled}) so they are excluded entirely and never force LOW.
      */
     private static Confidence aggregateConfidence(List<DownstreamSlice> critical,
                                                   List<DownstreamSlice> nonCritical) {
@@ -303,6 +373,28 @@ public class DigitalTwinService {
 
     private static McpStatus statusFor(Confidence confidence) {
         return confidence == Confidence.HIGH ? McpStatus.OK : McpStatus.DATA_STALE;
+    }
+
+    /** Message used everywhere the knowledge layer is reported as turned off. */
+    static final String KNOWLEDGE_DISABLED_MESSAGE =
+            "knowledge layer disabled for this project (digital-twin.features.knowledge.enabled=false)";
+
+    /** The DISABLED knowledge sub-state emitted when the feature flag is off. */
+    private static SubState disabledKnowledgeSubState() {
+        return new SubState("knowledge", McpStatus.DISABLED, "rag-mcp + wiki-mcp",
+                KNOWLEDGE_DISABLED_MESSAGE);
+    }
+
+    /**
+     * Combine the live rag-mcp and wiki-mcp slices into one knowledge sub-state.
+     * The combined status is OK only when both sources are usable (OK or their
+     * own DISABLED); otherwise DATA_STALE. A downstream reporting DISABLED is
+     * carried through unchanged (not an error).
+     */
+    private static SubState knowledgeSubState(DownstreamSlice rag, DownstreamSlice wiki) {
+        KnowledgeSlice knowledge = KnowledgeSlice.from(rag, wiki);
+        McpStatus status = knowledge.isOk() ? McpStatus.OK : McpStatus.DATA_STALE;
+        return new SubState("knowledge", status, "rag-mcp + wiki-mcp", knowledge);
     }
 
     // --------------------------------------------------------- report builders
@@ -609,6 +701,21 @@ public class DigitalTwinService {
                 "/api/structurizr/validate", "structurizr-mcp");
     }
 
+    private DownstreamSlice fetchRag() {
+        return downstream.getPath(properties.getDownstream().getRagMcp(),
+                "/api/rag/state", "rag-mcp");
+    }
+
+    private DownstreamSlice fetchWiki() {
+        return downstream.getPath(properties.getDownstream().getWikiMcp(),
+                "/api/wiki/state", "wiki-mcp");
+    }
+
+    private DownstreamSlice reindexRag() {
+        return downstream.postPath(properties.getDownstream().getRagMcp(),
+                "/api/rag/reindex", "rag-mcp");
+    }
+
     // ----------------------------------------------------------------- helpers
 
     private static void appendSlice(StringBuilder sb, SubState slice) {
@@ -618,15 +725,32 @@ public class DigitalTwinService {
     }
 
     private static void addIfStale(List<String> sink, DownstreamSlice slice, String label) {
-        if (!slice.isOk()) {
+        // DISABLED is intentional, not a failure: never report it as a stale source.
+        if (!slice.isOk() && slice.status() != McpStatus.DISABLED) {
             sink.add(label + (slice.message() == null ? "" : " (" + slice.message() + ")"));
         }
+    }
+
+    /**
+     * Drop slices whose status is {@link McpStatus#DISABLED} — they are
+     * intentionally turned off and must be IGNORED ENTIRELY for confidence
+     * scoring (neither lowering it nor counting as stale).
+     */
+    private static List<DownstreamSlice> ignoreDisabled(List<DownstreamSlice> slices) {
+        List<DownstreamSlice> out = new ArrayList<>();
+        for (DownstreamSlice s : slices) {
+            if (s.status() != McpStatus.DISABLED) {
+                out.add(s);
+            }
+        }
+        return out;
     }
 
     private static String staleLabels(List<DownstreamSlice> slices) {
         List<String> labels = new ArrayList<>();
         for (DownstreamSlice s : slices) {
-            if (!s.isOk()) {
+            // DISABLED is intentional, not a stale input.
+            if (!s.isOk() && s.status() != McpStatus.DISABLED) {
                 labels.add(s.source());
             }
         }

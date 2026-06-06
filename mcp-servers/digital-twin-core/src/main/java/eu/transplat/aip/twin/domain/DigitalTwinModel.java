@@ -11,15 +11,16 @@ import java.util.List;
  * sub-state wraps the corresponding downstream slice together with its
  * provenance and freshness.
  *
- * <p>Architecture and knowledge states are stale placeholders until the MVP-2+
- * downstreams (Structurizr, jQAssistant, Wiki, RAG) come online.
+ * <p>ARCHITECTURE_STATE is live (jQAssistant + Structurizr). KNOWLEDGE_STATE
+ * (rag-mcp + wiki-mcp) is an OPTIONAL layer, OFF by default: when disabled it is
+ * carried as a {@code DISABLED} sub-state that does not affect confidence.
  *
  * @param deliveryState     DELIVERY_STATE from jira-mcp
  * @param codeState         CODE_STATE from github-mcp
  * @param qualityState      QUALITY_STATE from sonar-mcp
  * @param debtState         DEBT_STATE from sonar-mcp (same slice, debt view)
- * @param architectureState ARCHITECTURE_STATE placeholder (MVP-2+: Structurizr/jQAssistant)
- * @param knowledgeState    KNOWLEDGE_STATE placeholder (MVP-2+/MVP-3: Wiki/RAG)
+ * @param architectureState ARCHITECTURE_STATE (live: jQAssistant graph + Structurizr C4 model)
+ * @param knowledgeState    KNOWLEDGE_STATE (optional rag-mcp + wiki-mcp; DISABLED when the flag is off)
  * @param overallConfidence aggregated confidence per the resilience rule
  * @param staleSources      sources that could not be refreshed for this snapshot
  * @param recommendations   short rule-derived recommendations

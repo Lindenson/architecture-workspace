@@ -28,7 +28,11 @@ Every tool/endpoint returns the canonical `eu.transplat.aip.mcp.common.McpRespon
 2. **ARCHITECTURE_STATE** is now **live** (MVP-2): the jQAssistant graph summary
    and the Structurizr C4 model summary are combined into one `ArchitectureSlice`
    sub-state, each retaining its own status/provenance. **KNOWLEDGE_STATE**
-   (Wiki / RAG) is still MVP-3 and emitted as a `DATA_STALE` placeholder.
+   (rag-mcp + wiki-mcp) is an **optional layer, OFF by default** — see
+   [Knowledge layer](#knowledge-layer-optional-off-by-default). When disabled it
+   is emitted as a `DISABLED` sub-state (not stale, not an error); when enabled it
+   combines `GET /api/rag/state` and `GET /api/wiki/state` into one
+   `KnowledgeSlice`, each retaining its own status/provenance.
 3. Merge the slices into `DigitalTwinModel`, each sub-state keeping its own
    `status` + `source` provenance.
 4. Derive a short **recommendations** list from simple rules (e.g. Sonar
@@ -46,15 +50,20 @@ No tool ever throws. If a downstream is unreachable its slice is marked
 
 - **Critical** slices = **delivery (jira-mcp)** + **quality/debt (sonar-mcp)**.
 - **Non-critical** slices = **code (github-mcp)** + **architecture
-  (jqassistant-mcp graph + structurizr-mcp C4 model)**.
+  (jqassistant-mcp graph + structurizr-mcp C4 model)** + **knowledge
+  (rag-mcp + wiki-mcp, when enabled)**.
 - **LOW** — any *critical* slice is stale.
-- **MEDIUM** — only *non-critical* slices are stale (incl. architecture).
-- **HIGH** — every live slice is OK.
+- **MEDIUM** — only *non-critical* slices are stale (incl. architecture/knowledge).
+- **HIGH** — every active slice is OK.
 
-Architecture sources are NON-CRITICAL for MVP-2: their being down contributes to
-MEDIUM and to `staleSources` but never forces LOW. The knowledge (Wiki/RAG)
-placeholder is MVP-3 and never affects confidence. A single downstream being
-down never fails the whole call.
+Architecture sources are NON-CRITICAL: their being down contributes to MEDIUM and
+to `staleSources` but never forces LOW. Knowledge, when enabled, is also
+NON-CRITICAL. A single downstream being down never fails the whole call.
+
+**DISABLED slices are IGNORED entirely.** A slice whose status is `DISABLED`
+(e.g. the knowledge layer when the feature flag is off, or a downstream that
+itself reports `DISABLED`) does **not** lower confidence and does **not** appear
+in `staleSources`. It is excluded from scoring before the rule above is applied.
 
 ## Tools (MCP) / endpoints (REST)
 
@@ -65,7 +74,7 @@ down never fails the whole call.
 | `analyzeReleaseReadiness()`| `GET /api/twin/release-readiness`      | READY / READY_WITH_RISKS / NOT_READY + reasons |
 | `runArchitectureRescan()`  | —                                      | **Real scan (MVP-2)**: pulls jQAssistant `/state` + `/cycles` + `/violations` and Structurizr `/state` + `/validate`, assembles an `ARCHITECTURE_SNAPSHOT` (graph, cycles, layeringViolations, model, validation, driftSignals). HIGH if both servers OK; MEDIUM if one stale; DATA_STALE only if both unreachable |
 | `generateReport(type)`     | `GET /api/twin/report?type=DAILY`      | Markdown report; type ∈ {DAILY,WEEKLY,ARCHITECTURE,TECH_DEBT,RELEASE}. ARCHITECTURE enriched with the rescan snapshot |
-| `updateKnowledgeBase()`    | —                                      | RAG refresh (planned MVP-3); returns DATA_STALE |
+| `updateKnowledgeBase()`    | —                                      | Knowledge refresh: `POST /api/rag/reindex` + re-read `GET /api/wiki/state` → `KNOWLEDGE_UPDATE_REPORT`. Returns **DISABLED** when the knowledge flag is off (default); otherwise HIGH/MEDIUM per the confidence rule |
 
 ### runArchitectureRescan / ARCHITECTURE_SNAPSHOT
 
@@ -87,6 +96,49 @@ Release-readiness rule: **NOT_READY** if any quality gate is ERROR;
 **READY_WITH_RISKS** if there are open blocking issues or stale sources; otherwise
 **READY**.
 
+## Knowledge layer (optional, OFF by default)
+
+The knowledge layer (RAG index + wiki) is an **optional, configurable** capability
+and is **disabled by default**. It is wired to two downstreams:
+
+- `rag-mcp` (default `http://localhost:8088`): `GET /api/rag/state`
+  (`{enabled, provider, dimension, dbReachable, indexedChunks, sources,
+  lastIndexedAt}`) and `POST /api/rag/reindex`.
+- `wiki-mcp` (default `http://localhost:8086`): `GET /api/wiki/state`
+  (`{spaces, generatedAt}`).
+
+**Behavior when disabled** (the default): `showProjectState()` emits a knowledge
+sub-state with status **`DISABLED`** and the message
+*"knowledge layer disabled for this project
+(digital-twin.features.knowledge.enabled=false)"*, and `updateKnowledgeBase()`
+returns `McpResponse.disabled(...)`. No call is ever made to rag-mcp/wiki-mcp.
+DISABLED slices do **not** affect overall confidence and do **not** appear in
+`staleSources`.
+
+**Behavior when enabled**: `showProjectState()` fans out (lazily, per request) to
+`GET /api/rag/state` and `GET /api/wiki/state`, combining them into one
+`KnowledgeSlice` (each source keeps its own status/provenance). Knowledge is
+NON-CRITICAL — a stale source yields MEDIUM, never LOW. If a downstream itself
+reports `DISABLED` (e.g. RAG turned off inside rag-mcp), that status is carried
+through unchanged and treated as not-a-failure (ignored for confidence).
+`updateKnowledgeBase()` triggers `POST /api/rag/reindex` and re-reads
+`GET /api/wiki/state`, returning a `KNOWLEDGE_UPDATE_REPORT`
+(`{ragReindex, wiki, generatedAt}`).
+
+**How to enable:**
+
+```bash
+# 1. start the two knowledge servers (rag-mcp on 8088, wiki-mcp on 8086)
+# 2. turn the flag on for digital-twin-core:
+export KNOWLEDGE_ENABLED=true
+java -jar target/digital-twin-core.jar
+```
+
+The flag binds to `digital-twin.features.knowledge.enabled`
+(`${KNOWLEDGE_ENABLED:false}`). The fan-out is lazy/per-request, so the server
+still starts (and `contextLoads` still passes) whether or not the flag is on or
+the knowledge servers are running.
+
 ## Configuration / environment variables
 
 Bound via `DigitalTwinProperties` (`prefix = digital-twin`). All secrets come
@@ -102,6 +154,7 @@ from config/env — never hardcoded.
 | `PORT_JQA_URL`            | `digital-twin.downstream.jqassistant-mcp` | `http://localhost:8085` |
 | `PORT_WIKI_URL`           | `digital-twin.downstream.wiki-mcp`        | `http://localhost:8086` |
 | `PORT_RAG_URL`            | `digital-twin.downstream.rag-mcp`         | `http://localhost:8088` |
+| `KNOWLEDGE_ENABLED`       | `digital-twin.features.knowledge.enabled` | `false` (knowledge layer off) |
 
 Optional config file: `${AIP_CONFIG_DIR:./config}/digital-twin.config.yml`
 (also `../config/digital-twin.config.yml`).

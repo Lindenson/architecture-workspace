@@ -1,0 +1,11 @@
+# Copy to config/wiki.config.yml (gitignored) OR set the matching env vars.
+# wiki-mcp is OPTIONAL. Disable with wiki.enabled=false (or don't start it).
+wiki:
+  enabled: ${WIKI_ENABLED:true}
+  base-url: ${WIKI_BASE_URL:https://your-org.atlassian.net/wiki}
+  email: ${WIKI_EMAIL:you@your-org.com}
+  api-token: ${WIKI_API_TOKEN:change-me}
+  # Comma-separated Confluence space keys the agent reads.
+  space-keys: ${WIKI_SPACE_KEYS:ARCH,DOM}
+  # Hard guardrail: page updates require write-enabled=true.
+  write-enabled: ${WIKI_WRITE_ENABLED:false}

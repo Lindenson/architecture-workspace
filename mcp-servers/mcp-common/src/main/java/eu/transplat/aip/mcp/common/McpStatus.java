@@ -8,5 +8,12 @@ package eu.transplat.aip.mcp.common;
 public enum McpStatus {
     OK,
     ERROR,
-    DATA_STALE
+    DATA_STALE,
+    /**
+     * The capability is intentionally turned off for this project (e.g. the RAG
+     * knowledge layer is disabled by configuration). This is NOT a failure: the
+     * orchestrator must exclude DISABLED slices from confidence scoring and from
+     * "stale source" reporting.
+     */
+    DISABLED
 }

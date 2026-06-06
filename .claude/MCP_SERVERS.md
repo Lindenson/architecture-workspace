@@ -13,9 +13,17 @@ ${AIP_INTERNAL_TOKEN}`.
 | sonar-mcp          | 8083 | **MVP-1 ✅** | SonarQube Web API            | QUALITY_STATE, DEBT_STATE  |
 | structurizr-mcp    | 8084 | **MVP-2 ✅** | Structurizr DSL (workspace.dsl) | ARCHITECTURE_MODEL    |
 | jqassistant-mcp    | 8085 | **MVP-2 ✅** | Neo4j (jQAssistant graph)    | ARCHITECTURE_GRAPH        |
-| rag-mcp            | 8088 | MVP-3 (planned) | Postgres + pgvector      | CONTEXT_PACKS              |
-| wiki-mcp           | 8086 | MVP-3 (planned) | Confluence/Wiki API      | KNOWLEDGE_DOCUMENTS        |
+| rag-mcp            | 8088 | **MVP-3 ✅ (optional)** | Postgres + pgvector  | CONTEXT_PACKS              |
+| wiki-mcp           | 8086 | **MVP-3 ✅ (optional)** | Confluence API       | KNOWLEDGE_DOCUMENTS        |
 | openspec-mcp       | 8087 | MVP-4 (planned) | OpenSpec repo            | DESIGN_CONTRACTS           |
+
+> **The knowledge layer (rag-mcp + wiki-mcp) is OPTIONAL and OFF by default.**
+> The orchestrator's `digital-twin.features.knowledge.enabled` is `false` unless
+> `KNOWLEDGE_ENABLED=true`; while off, the knowledge slice is reported as
+> `DISABLED` (a first-class state that does **not** lower confidence). Enable it
+> per-project with `KNOWLEDGE_ENABLED=true` + `docker compose --profile knowledge up -d`.
+> `rag-mcp` embeddings are pluggable: `local` (offline ONNX, default, no key),
+> `openai` (any OpenAI-compatible endpoint), or `none` (Postgres full-text only).
 
 > Planned servers are already wired in `.mcp.json` (per spec). Until their Spring
 > Boot apps are running on the listed port, the agent will see a connection error
@@ -36,11 +44,15 @@ java -jar sonar-mcp/target/sonar-mcp.jar                    # :8083
 java -jar jqassistant-mcp/target/jqassistant-mcp.jar       # :8085 (needs Neo4j)
 java -jar structurizr-mcp/target/structurizr-mcp.jar       # :8084 (reads workspace.dsl)
 java -jar digital-twin-core/target/digital-twin-core.jar   # :8080
+# Optional knowledge layer:
+java -jar rag-mcp/target/rag-mcp.jar                       # :8088 (needs Postgres+pgvector)
+java -jar wiki-mcp/target/wiki-mcp.jar                     # :8086 (Confluence)
 ```
 
 ## Run (docker)
 ```bash
-docker compose up -d            # postgres, neo4j, and all MVP-1 MCP servers
+docker compose up -d                              # postgres, neo4j, MVP-1 + MVP-2 servers
+docker compose --profile knowledge up -d          # + optional rag-mcp & wiki-mcp
 ```
 
 ## Tool surface (MVP-1)
@@ -53,5 +65,10 @@ docker compose up -d            # postgres, neo4j, and all MVP-1 MCP servers
   dependenciesOf, dependentsOf (blast radius), godClasses, runScan, getState
 - **structurizr-mcp:** readWorkspace, validateModel, listElements, listRelationships,
   getViews, detectDrift, getState
+- **rag-mcp** *(optional):* indexPath, reindexAll, search, retrieveContext,
+  updateEmbeddings, getState *(returns DISABLED when `rag.enabled=false`)*
+- **wiki-mcp** *(optional):* searchPages, getPage, listPages, readPages,
+  updatePage *(write-gated)*, getState *(DISABLED when `wiki.enabled=false`)*
 - **digital-twin-core:** showProjectState, analyzeTechDebt, analyzeReleaseReadiness,
-  runArchitectureRescan *(now real — fans out to jQAssistant + Structurizr)*, generateReport
+  runArchitectureRescan *(real — fans out to jQAssistant + Structurizr)*,
+  updateKnowledgeBase *(real when knowledge enabled, else DISABLED)*, generateReport

@@ -17,6 +17,9 @@ public class DigitalTwinProperties {
     /** Base URLs of the downstream MCP servers the orchestrator fans out to. */
     private Downstream downstream = new Downstream();
 
+    /** Optional capability toggles (e.g. the knowledge layer). */
+    private Features features = new Features();
+
     public String getInternalToken() {
         return internalToken;
     }
@@ -33,6 +36,49 @@ public class DigitalTwinProperties {
         this.downstream = downstream;
     }
 
+    public Features getFeatures() {
+        return features;
+    }
+
+    public void setFeatures(Features features) {
+        this.features = features;
+    }
+
+    /** Optional, configurable capability toggles. */
+    public static class Features {
+
+        /** The knowledge layer (rag-mcp + wiki-mcp). OFF by default. */
+        private Knowledge knowledge = new Knowledge();
+
+        public Knowledge getKnowledge() {
+            return knowledge;
+        }
+
+        public void setKnowledge(Knowledge knowledge) {
+            this.knowledge = knowledge;
+        }
+
+        /**
+         * Knowledge layer feature flag. When {@code enabled} is {@code false}
+         * (the default) the orchestrator emits a {@code DISABLED} knowledge slice
+         * and never calls rag-mcp/wiki-mcp; the slice does not affect confidence
+         * nor appear in {@code staleSources}.
+         */
+        public static class Knowledge {
+
+            /** Whether the knowledge layer is enabled for this project. Default false. */
+            private boolean enabled = false;
+
+            public boolean isEnabled() {
+                return enabled;
+            }
+
+            public void setEnabled(boolean enabled) {
+                this.enabled = enabled;
+            }
+        }
+    }
+
     /** Base URLs of each downstream MCP server. */
     public static class Downstream {
 
@@ -46,9 +92,9 @@ public class DigitalTwinProperties {
         private String structurizrMcp = "";
         /** ARCHITECTURE_STATE source (jQAssistant). Planned (MVP-2+). */
         private String jqassistantMcp = "";
-        /** KNOWLEDGE_STATE source (Wiki). Planned (MVP-2+). */
+        /** KNOWLEDGE_STATE source (Wiki). Used only when the knowledge feature flag is on. */
         private String wikiMcp = "";
-        /** KNOWLEDGE_STATE source (RAG). Planned (MVP-3). */
+        /** KNOWLEDGE_STATE source (RAG). Used only when the knowledge feature flag is on. */
         private String ragMcp = "";
 
         public String getJiraMcp() {

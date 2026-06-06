@@ -25,6 +25,8 @@
         <module>sonar-mcp</module>
         <module>jqassistant-mcp</module>
         <module>structurizr-mcp</module>
+        <module>rag-mcp</module>
+        <module>wiki-mcp</module>
         <module>digital-twin-core</module>
     </modules>
 

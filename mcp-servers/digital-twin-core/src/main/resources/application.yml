@@ -28,6 +28,9 @@ digital-twin:
     jqassistant-mcp: ${PORT_JQA_URL:http://localhost:8085}
     wiki-mcp: ${PORT_WIKI_URL:http://localhost:8086}
     rag-mcp: ${PORT_RAG_URL:http://localhost:8088}
+  features:
+    knowledge:
+      enabled: ${KNOWLEDGE_ENABLED:false}
 
 management:
   endpoints:

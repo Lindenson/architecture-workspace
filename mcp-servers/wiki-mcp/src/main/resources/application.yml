@@ -1,0 +1,33 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: wiki-mcp
+  config:
+    import: "optional:file:${AIP_CONFIG_DIR:./config}/wiki.config.yml,optional:file:../config/wiki.config.yml"
+  ai:
+    mcp:
+      server:
+        name: wiki-mcp
+        version: 0.1.0
+        type: SYNC
+        sse-message-endpoint: /mcp/messages
+
+aip:
+  security:
+    internal-token: ${AIP_INTERNAL_TOKEN:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+wiki:
+  enabled: ${WIKI_ENABLED:true}
+  base-url: ${WIKI_BASE_URL:https://your-org.atlassian.net/wiki}
+  email: ${WIKI_EMAIL:}
+  api-token: ${WIKI_API_TOKEN:}
+  space-keys: ${WIKI_SPACE_KEYS:}
+  write-enabled: ${WIKI_WRITE_ENABLED:false}

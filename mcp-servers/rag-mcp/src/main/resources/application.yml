@@ -1,0 +1,53 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: rag-mcp
+  config:
+    import: "optional:file:${AIP_CONFIG_DIR:./config}/rag.config.yml,optional:file:../config/rag.config.yml,optional:file:${AIP_CONFIG_DIR:./config}/postgres.config.yml,optional:file:../config/postgres.config.yml"
+  # Never run schema init at startup — the RAG store creates its own schema lazily, per request.
+  sql:
+    init:
+      mode: never
+  datasource:
+    url: ${RAG_DB_URL:jdbc:postgresql://localhost:5432/architecture_ai}
+    username: ${POSTGRES_USER:aip}
+    password: ${POSTGRES_PASSWORD:}
+  ai:
+    mcp:
+      server:
+        name: rag-mcp
+        version: 0.1.0
+        type: SYNC
+        sse-message-endpoint: /mcp/messages
+
+rag:
+  enabled: ${RAG_ENABLED:true}
+  top-k: ${RAG_TOP_K:6}
+  embeddings:
+    provider: ${RAG_EMBEDDINGS_PROVIDER:local}
+    dimension: ${RAG_EMBEDDINGS_DIMENSION:384}
+    table: ${RAG_EMBEDDINGS_TABLE:rag_chunks}
+    openai:
+      base-url: ${RAG_OPENAI_BASE_URL:https://api.openai.com/v1}
+      api-key: ${RAG_OPENAI_API_KEY:}
+      model: ${RAG_OPENAI_MODEL:text-embedding-3-small}
+  sources: ${RAG_SOURCES:knowledge,architecture,history,project-memory,domain/model,delivery/roadmap}
+  chunk:
+    max-chars: ${RAG_CHUNK_MAX_CHARS:1200}
+    overlap: ${RAG_CHUNK_OVERLAP:150}
+
+aip:
+  security:
+    internal-token: ${AIP_INTERNAL_TOKEN:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  health:
+    # Do NOT force the context DOWN when Postgres is unreachable — RAG degrades gracefully.
+    db:
+      enabled: false

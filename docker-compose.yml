@@ -156,6 +156,49 @@ services:
     ports:
       - "${PORT_STRUCTURIZR_MCP:-8084}:8084"
 
+  # --- rag-mcp: optional KNOWLEDGE/RAG layer (pgvector) ---------------------
+  #  OPTIONAL — only starts with:  docker compose --profile knowledge up -d
+  #  Embeddings provider is configurable (local ONNX by default, no API key).
+  rag-mcp:
+    image: eclipse-temurin:21-jre
+    container_name: aip-rag-mcp
+    profiles: ["knowledge"]
+    restart: unless-stopped
+    env_file: .env
+    working_dir: /app
+    environment:
+      AIP_CONFIG_DIR: /config
+      RAG_REPO_ROOT: /workspace
+      RAG_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-architecture_ai}
+    volumes:
+      - ./mcp-servers/rag-mcp/target:/app
+      - ./config:/config:ro
+      - ./:/workspace:ro          # workspace docs to index (read-only)
+    command: ["java", "-jar", "/app/rag-mcp.jar"]
+    ports:
+      - "${PORT_RAG_MCP:-8088}:8088"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # --- wiki-mcp: optional KNOWLEDGE_DOCUMENTS source (Confluence) -----------
+  #  OPTIONAL — only starts with:  docker compose --profile knowledge up -d
+  wiki-mcp:
+    image: eclipse-temurin:21-jre
+    container_name: aip-wiki-mcp
+    profiles: ["knowledge"]
+    restart: unless-stopped
+    env_file: .env
+    working_dir: /app
+    environment:
+      AIP_CONFIG_DIR: /config
+    volumes:
+      - ./mcp-servers/wiki-mcp/target:/app
+      - ./config:/config:ro
+    command: ["java", "-jar", "/app/wiki-mcp.jar"]
+    ports:
+      - "${PORT_WIKI_MCP:-8086}:8086"
+
   # --- digital-twin-core: orchestrator → DIGITAL_TWIN_MODEL -----------------
   digital-twin-core:
     image: eclipse-temurin:21-jre
@@ -172,6 +215,11 @@ services:
       PORT_SONAR_URL: http://sonar-mcp:8083
       PORT_JQA_URL: http://jqassistant-mcp:8085
       PORT_STRUCTURIZR_URL: http://structurizr-mcp:8084
+      # Optional knowledge layer (off by default). Set KNOWLEDGE_ENABLED=true in
+      # .env AND start the servers with: docker compose --profile knowledge up -d
+      KNOWLEDGE_ENABLED: ${KNOWLEDGE_ENABLED:-false}
+      PORT_RAG_URL: http://rag-mcp:8088
+      PORT_WIKI_URL: http://wiki-mcp:8086
     volumes:
       - ./mcp-servers/digital-twin-core/target:/app
       - ./config:/config:ro
