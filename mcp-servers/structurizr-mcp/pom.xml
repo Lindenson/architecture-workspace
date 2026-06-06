@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>eu.transplat.aip</groupId>
+        <artifactId>mcp-servers</artifactId>
+        <version>0.1.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>structurizr-mcp</artifactId>
+    <name>AIP :: Structurizr MCP Server</name>
+    <description>Spring Boot MCP server that parses and validates the Structurizr C4 model (workspace.dsl) and exposes containers, components, relationships, views, validation and a code-drift hook to the AIP digital twin.</description>
+
+    <properties>
+        <!--
+            com.structurizr:structurizr-dsl is NOT managed by the Spring Boot or
+            Spring AI BOMs, so the version is pinned here. Latest stable on Maven
+            Central (resolved via context7 against structurizr/java): 5.0.3.
+            structurizr-core comes in transitively.
+        -->
+        <structurizr.version>5.0.3</structurizr.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>eu.transplat.aip</groupId>
+            <artifactId>mcp-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-mcp-server-webmvc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Structurizr DSL parser (+ structurizr-core transitively). -->
+        <dependency>
+            <groupId>com.structurizr</groupId>
+            <artifactId>structurizr-dsl</artifactId>
+            <version>${structurizr.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>structurizr-mcp</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

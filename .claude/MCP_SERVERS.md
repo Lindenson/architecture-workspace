@@ -11,8 +11,8 @@ ${AIP_INTERNAL_TOKEN}`.
 | jira-mcp           | 8081 | **MVP-1 ✅** | Jira REST                    | DELIVERY_STATE             |
 | github-mcp         | 8082 | **MVP-1 ✅** | GitHub/GitLab REST           | CODE_STATE, CHANGESET_STATE|
 | sonar-mcp          | 8083 | **MVP-1 ✅** | SonarQube Web API            | QUALITY_STATE, DEBT_STATE  |
-| structurizr-mcp    | 8084 | MVP-2 (planned) | Structurizr DSL/API      | ARCHITECTURE_MODEL         |
-| jqassistant-mcp    | 8085 | MVP-2 (planned) | Neo4j (jQAssistant)      | ARCHITECTURE_GRAPH         |
+| structurizr-mcp    | 8084 | **MVP-2 ✅** | Structurizr DSL (workspace.dsl) | ARCHITECTURE_MODEL    |
+| jqassistant-mcp    | 8085 | **MVP-2 ✅** | Neo4j (jQAssistant graph)    | ARCHITECTURE_GRAPH        |
 | rag-mcp            | 8088 | MVP-3 (planned) | Postgres + pgvector      | CONTEXT_PACKS              |
 | wiki-mcp           | 8086 | MVP-3 (planned) | Confluence/Wiki API      | KNOWLEDGE_DOCUMENTS        |
 | openspec-mcp       | 8087 | MVP-4 (planned) | OpenSpec repo            | DESIGN_CONTRACTS           |
@@ -25,14 +25,16 @@ ${AIP_INTERNAL_TOKEN}`.
 ## Build
 ```bash
 cd mcp-servers
-mvn -q -DskipTests package        # builds mcp-common + all MVP-1 servers
+mvn -q -DskipTests package        # builds mcp-common + all MVP-1 & MVP-2 servers
 ```
 
 ## Run (local jars)
 ```bash
-java -jar jira-mcp/target/jira-mcp.jar          # :8081
-java -jar github-mcp/target/github-mcp.jar      # :8082
-java -jar sonar-mcp/target/sonar-mcp.jar        # :8083
+java -jar jira-mcp/target/jira-mcp.jar                      # :8081
+java -jar github-mcp/target/github-mcp.jar                  # :8082
+java -jar sonar-mcp/target/sonar-mcp.jar                    # :8083
+java -jar jqassistant-mcp/target/jqassistant-mcp.jar       # :8085 (needs Neo4j)
+java -jar structurizr-mcp/target/structurizr-mcp.jar       # :8084 (reads workspace.dsl)
 java -jar digital-twin-core/target/digital-twin-core.jar   # :8080
 ```
 
@@ -47,5 +49,9 @@ docker compose up -d            # postgres, neo4j, and all MVP-1 MCP servers
 - **github-mcp:** readRepository, repoSnapshot, readCommits, readBranches, readTags,
   searchPR, analyzePR, extractChangesets
 - **sonar-mcp:** qualityGate, technicalDebt, codeSmells, securityIssues, coverage, fetchReport
+- **jqassistant-mcp:** queryGraph (read-only Cypher), findCycles, findLayeringViolations,
+  dependenciesOf, dependentsOf (blast radius), godClasses, runScan, getState
+- **structurizr-mcp:** readWorkspace, validateModel, listElements, listRelationships,
+  getViews, detectDrift, getState
 - **digital-twin-core:** showProjectState, analyzeTechDebt, analyzeReleaseReadiness,
-  runArchitectureRescan, generateReport
+  runArchitectureRescan *(now real — fans out to jQAssistant + Structurizr)*, generateReport

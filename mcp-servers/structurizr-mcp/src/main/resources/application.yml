@@ -1,0 +1,32 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: structurizr-mcp
+  config:
+    import: "optional:file:${AIP_CONFIG_DIR:./config}/structurizr.config.yml,optional:file:../config/structurizr.config.yml"
+  ai:
+    mcp:
+      server:
+        name: structurizr-mcp
+        version: 0.1.0
+        type: SYNC
+        sse-message-endpoint: /mcp/messages
+
+structurizr:
+  workspace-path: ${STRUCTURIZR_WORKSPACE_PATH:../architecture/c4/workspace.dsl}
+  api:
+    url: ${STRUCTURIZR_API_URL:}
+    key: ${STRUCTURIZR_API_KEY:}
+    secret: ${STRUCTURIZR_API_SECRET:}
+
+aip:
+  security:
+    internal-token: ${AIP_INTERNAL_TOKEN:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -1,0 +1,17 @@
+# Copy to config/jqassistant.config.yml (gitignored) OR set the matching env vars.
+# jqassistant-mcp reads a Neo4j graph populated by jQAssistant from your product
+# bytecode. Populate it externally (jqassistant scan/analyze) or point JQA_SCAN_DIR
+# + JQA_CLI at a build to let the server run the scan.
+jqassistant:
+  neo4j:
+    uri: ${NEO4J_URI:bolt://localhost:7687}
+    user: ${NEO4J_USER:neo4j}
+    password: ${NEO4J_PASSWORD:change-me}
+  # Optional: directory of compiled classes/jars to scan, and a jqassistant CLI.
+  scan-dir: ${JQA_SCAN_DIR:}
+  cli: ${JQA_CLI:}
+  # Package globs used to detect layering violations (tune to your codebase).
+  layering:
+    controller-package: "*..controller.."
+    service-package: "*..service.."
+    repository-package: "*..repository.."

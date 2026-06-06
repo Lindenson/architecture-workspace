@@ -116,6 +116,46 @@ services:
       postgres:
         condition: service_healthy
 
+  # --- jqassistant-mcp: ARCHITECTURE_GRAPH source (MVP-2) -------------------
+  jqassistant-mcp:
+    image: eclipse-temurin:21-jre
+    container_name: aip-jqassistant-mcp
+    restart: unless-stopped
+    env_file: .env
+    working_dir: /app
+    environment:
+      AIP_CONFIG_DIR: /config
+      # Reach Neo4j by service name (overrides the localhost default in .env).
+      NEO4J_URI: bolt://neo4j:7687
+    volumes:
+      - ./mcp-servers/jqassistant-mcp/target:/app
+      - ./config:/config:ro
+    command: ["java", "-jar", "/app/jqassistant-mcp.jar"]
+    ports:
+      - "${PORT_JQASSISTANT_MCP:-8085}:8085"
+    depends_on:
+      neo4j:
+        condition: service_healthy
+
+  # --- structurizr-mcp: ARCHITECTURE_MODEL (C4) source (MVP-2) --------------
+  structurizr-mcp:
+    image: eclipse-temurin:21-jre
+    container_name: aip-structurizr-mcp
+    restart: unless-stopped
+    env_file: .env
+    working_dir: /app
+    environment:
+      AIP_CONFIG_DIR: /config
+      # The C4 DSL lives in the repo; mount it and point the server at it.
+      STRUCTURIZR_WORKSPACE_PATH: /architecture/c4/workspace.dsl
+    volumes:
+      - ./mcp-servers/structurizr-mcp/target:/app
+      - ./config:/config:ro
+      - ./architecture:/architecture:ro
+    command: ["java", "-jar", "/app/structurizr-mcp.jar"]
+    ports:
+      - "${PORT_STRUCTURIZR_MCP:-8084}:8084"
+
   # --- digital-twin-core: orchestrator → DIGITAL_TWIN_MODEL -----------------
   digital-twin-core:
     image: eclipse-temurin:21-jre
@@ -130,6 +170,8 @@ services:
       PORT_JIRA_URL: http://jira-mcp:8081
       PORT_GITHUB_URL: http://github-mcp:8082
       PORT_SONAR_URL: http://sonar-mcp:8083
+      PORT_JQA_URL: http://jqassistant-mcp:8085
+      PORT_STRUCTURIZR_URL: http://structurizr-mcp:8084
     volumes:
       - ./mcp-servers/digital-twin-core/target:/app
       - ./config:/config:ro
@@ -144,6 +186,10 @@ services:
       github-mcp:
         condition: service_started
       sonar-mcp:
+        condition: service_started
+      jqassistant-mcp:
+        condition: service_started
+      structurizr-mcp:
         condition: service_started
 
 volumes:

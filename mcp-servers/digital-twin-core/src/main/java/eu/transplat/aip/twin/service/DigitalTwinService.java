@@ -5,6 +5,8 @@ import eu.transplat.aip.mcp.common.McpResponse;
 import eu.transplat.aip.mcp.common.McpStatus;
 import eu.transplat.aip.twin.client.DownstreamClient;
 import eu.transplat.aip.twin.config.DigitalTwinProperties;
+import eu.transplat.aip.twin.domain.ArchitectureSlice;
+import eu.transplat.aip.twin.domain.ArchitectureSnapshot;
 import eu.transplat.aip.twin.domain.DigitalTwinModel;
 import eu.transplat.aip.twin.domain.DownstreamSlice;
 import eu.transplat.aip.twin.domain.ReleaseReadiness;
@@ -30,6 +32,14 @@ import java.util.Map;
  * confidence drops — LOW if any <em>critical</em> slice is stale, MEDIUM if only
  * non-critical slices are stale, HIGH only when every live slice is OK. A single
  * downstream being down never fails the whole call.
+ *
+ * <p>CONFIDENCE RULE (MVP-2): the CRITICAL slices are <b>delivery (jira-mcp)</b>
+ * and <b>quality/debt (sonar-mcp)</b> — if either is stale, overall confidence is
+ * LOW. The architecture sources (<b>jqassistant-mcp</b> graph + <b>structurizr-mcp</b>
+ * C4 model) are NON-CRITICAL: now that they are live they participate in the
+ * snapshot and, when stale, contribute to MEDIUM and to {@code staleSources}, but
+ * they NEVER force LOW. Code (github-mcp) is also non-critical. Knowledge
+ * (wiki/rag) remains a planned MVP-3 placeholder and never affects confidence.
  */
 @Service
 public class DigitalTwinService {
@@ -102,29 +112,97 @@ public class DigitalTwinService {
         }
     }
 
-    @Tool(description = "RUN_ARCHITECTURE_RESCAN: trigger the jQAssistant/Structurizr architecture-scan layer. "
-            + "That layer is planned (MVP-2+) and not yet running, so the architecture slice is DATA_STALE; "
-            + "available code/quality signals are still returned.")
+    @Tool(description = "RUN_ARCHITECTURE_RESCAN: pull the live architecture-scan layer and assemble an "
+            + "ARCHITECTURE_SNAPSHOT — jQAssistant graph summary + cycles + layering violations (code-side truth) "
+            + "and the Structurizr C4 model summary + validation (intended design), plus best-effort drift signals. "
+            + "HIGH when both servers answer; MEDIUM when one is stale; DATA_STALE/LOW only when both are unreachable "
+            + "(then the scan layer isn't running — start jqassistant-mcp + structurizr-mcp).")
     public McpResponse runArchitectureRescan() {
         try {
-            DownstreamSlice jqa = fetchJqassistant();
-            DownstreamSlice structurizr = fetchStructurizr();
-            DownstreamSlice github = fetchGithub();
-            DownstreamSlice sonar = fetchSonar();
+            DownstreamSlice graph = fetchJqassistant();
+            DownstreamSlice cycles = fetchJqassistantCycles();
+            DownstreamSlice violations = fetchJqassistantViolations();
+            DownstreamSlice model = fetchStructurizr();
+            DownstreamSlice validation = fetchStructurizrValidate();
 
-            Map<String, Object> data = new java.util.LinkedHashMap<>();
-            data.put("architectureState", "PLANNED");
-            data.put("jqassistant", jqa);
-            data.put("structurizr", structurizr);
-            data.put("codeState", SubState.from("code", github));
-            data.put("qualityState", SubState.from("quality", sonar));
-            return McpResponse.stale(data, SOURCE,
-                    "Architecture scan layer planned (MVP-2+): jQAssistant/Structurizr not running. "
-                            + "Returned available code/quality signals.");
+            ArchitectureSnapshot snapshot = new ArchitectureSnapshot(
+                    graph.data(),
+                    sliceList(cycles),
+                    sliceList(violations),
+                    model.data(),
+                    validation.data(),
+                    buildDriftSignals(graph, model, cycles, violations),
+                    Instant.now());
+
+            boolean jqaOk = graph.isOk();
+            boolean structurizrOk = model.isOk();
+            if (jqaOk && structurizrOk) {
+                return McpResponse.ok(snapshot, SOURCE, Confidence.HIGH);
+            }
+            if (jqaOk || structurizrOk) {
+                String stale = jqaOk ? "structurizr-mcp" : "jqassistant-mcp";
+                return new McpResponse(snapshot, McpStatus.OK, SOURCE, Confidence.MEDIUM,
+                        "Partial architecture snapshot: " + stale + " is stale ("
+                                + sliceMessage(jqaOk ? model : graph, stale) + ").",
+                        Instant.now());
+            }
+            return McpResponse.stale(snapshot, SOURCE,
+                    "Architecture scan layer not running: both jqassistant-mcp and structurizr-mcp are unreachable. "
+                            + "Start jqassistant-mcp (port 8085, needs a populated Neo4j) and structurizr-mcp (port 8084).");
         } catch (Exception e) {
             log.warn("runArchitectureRescan failed unexpectedly: {}", e.toString());
             return McpResponse.error(SOURCE, "runArchitectureRescan failed: " + e.getMessage());
         }
+    }
+
+    /**
+     * Best-effort, high-level drift signals between code (jQAssistant graph) and
+     * the intended design (Structurizr C4 model). Full component-level drift —
+     * matching individual package/class names against C4 components — is future
+     * work (structurizr-mcp exposes {@code detectDrift} for that). Here we surface:
+     * cycles, layering violations, C4 parse failure, and a coarse count comparison.
+     */
+    private List<String> buildDriftSignals(DownstreamSlice graphSlice, DownstreamSlice modelSlice,
+                                           DownstreamSlice cyclesSlice, DownstreamSlice violationsSlice) {
+        List<String> signals = new ArrayList<>();
+        Map<String, Object> graph = asMap(graphSlice.data());
+        Map<String, Object> model = asMap(modelSlice.data());
+
+        if (graph != null) {
+            long cycleCount = asLong(graph.get("cycleCount"), 0L);
+            if (cycleCount > 0) {
+                signals.add("DRIFT (code): " + cycleCount + " dependency cycles in the bytecode graph (jQAssistant).");
+            }
+            long violationCount = asLong(graph.get("layeringViolationCount"), 0L);
+            if (violationCount > 0) {
+                signals.add("DRIFT (code): " + violationCount
+                        + " layering violations (controller -> repository) in the bytecode graph (jQAssistant).");
+            }
+        }
+        if (model != null) {
+            Object parsedOk = model.get("parsedOk");
+            if (parsedOk != null && !Boolean.parseBoolean(String.valueOf(parsedOk))) {
+                signals.add("DRIFT (model): C4 model (workspace.dsl) failed to parse/validate (Structurizr).");
+            }
+        }
+        // Coarse count comparison: jQAssistant Package count vs C4 containers+components.
+        if (graph != null && model != null) {
+            Map<String, Object> labelCounts = asMap(graph.get("labelCounts"));
+            Long packages = labelCounts == null ? null : asLong(labelCounts.get("Package"), 0L);
+            long c4Elements = asLong(model.get("containers"), 0L) + asLong(model.get("components"), 0L);
+            if (packages != null) {
+                signals.add("INFO: graph has " + packages + " packages but the C4 model has "
+                        + c4Elements + " containers/components — coarse signal only; "
+                        + "component-level drift (name matching) is future work.");
+            }
+        }
+        if (!cyclesSlice.isOk() || !violationsSlice.isOk()) {
+            signals.add("INFO: cycle/violation detail unavailable (jqassistant-mcp stale) — drift is partial.");
+        }
+        if (signals.isEmpty()) {
+            signals.add("No high-level drift signals detected from available architecture data.");
+        }
+        return signals;
     }
 
     @Tool(description = "GENERATE_REPORT: assemble a markdown report. type in {DAILY,WEEKLY,ARCHITECTURE,TECH_DEBT,RELEASE}. "
@@ -164,30 +242,43 @@ public class DigitalTwinService {
         DownstreamSlice jira = fetchJira();
         DownstreamSlice github = fetchGithub();
         DownstreamSlice sonar = fetchSonar();
+        DownstreamSlice jqa = fetchJqassistant();
+        DownstreamSlice structurizr = fetchStructurizr();
 
         SubState delivery = SubState.from("delivery", jira);
         SubState code = SubState.from("code", github);
         SubState quality = SubState.from("quality", sonar);
         SubState debt = SubState.from("debt", sonar);
-        SubState architecture = new SubState("architecture", McpStatus.DATA_STALE,
-                "structurizr-mcp/jqassistant-mcp", "planned (MVP-2+): server not running");
-        SubState knowledge = new SubState("knowledge", McpStatus.DATA_STALE,
-                "wiki-mcp/rag-mcp", "planned (MVP-2+/MVP-3): server not running");
 
-        // Critical live slices: quality (gate/debt) and delivery. Code is non-critical.
+        // ARCHITECTURE_STATE: now live — combine the jQAssistant graph summary and
+        // the Structurizr C4 model summary into one section, each keeping its own
+        // status. The SubState is OK only when both architecture sources are OK.
+        ArchitectureSlice arch = ArchitectureSlice.from(jqa, structurizr);
+        McpStatus archStatus = arch.isOk() ? McpStatus.OK : McpStatus.DATA_STALE;
+        SubState architecture = new SubState("architecture", archStatus,
+                "jqassistant-mcp + structurizr-mcp", arch);
+        SubState knowledge = new SubState("knowledge", McpStatus.DATA_STALE,
+                "wiki-mcp/rag-mcp", "planned (MVP-3): server not running");
+
+        // CONFIDENCE RULE (MVP-2): critical = delivery (jira) + quality/debt (sonar).
+        // Non-critical = code (github) + architecture (jqassistant graph + structurizr
+        // C4 model). A stale architecture source contributes to MEDIUM and to
+        // staleSources but never forces LOW.
         List<DownstreamSlice> critical = List.of(sonar, jira);
-        List<DownstreamSlice> nonCritical = List.of(github);
+        List<DownstreamSlice> nonCritical = List.of(github, jqa, structurizr);
         Confidence confidence = aggregateConfidence(critical, nonCritical);
 
         List<String> staleSources = new ArrayList<>();
         addIfStale(staleSources, jira, "jira-mcp");
         addIfStale(staleSources, github, "github-mcp");
         addIfStale(staleSources, sonar, "sonar-mcp");
-        // Architecture/knowledge are always planned placeholders.
-        staleSources.add("structurizr-mcp/jqassistant-mcp (planned MVP-2+)");
-        staleSources.add("wiki-mcp/rag-mcp (planned MVP-2+/MVP-3)");
+        addIfStale(staleSources, jqa, "jqassistant-mcp");
+        addIfStale(staleSources, structurizr, "structurizr-mcp");
+        // Knowledge is still a planned MVP-3 placeholder.
+        staleSources.add("wiki-mcp/rag-mcp (planned MVP-3)");
 
         List<String> recommendations = buildRecommendations(sonar, jira);
+        recommendations.addAll(buildArchitectureRecommendations(jqa, structurizr));
 
         return new DigitalTwinModel(delivery, code, quality, debt, architecture, knowledge,
                 confidence, staleSources, recommendations, Instant.now());
@@ -196,8 +287,9 @@ public class DigitalTwinService {
     /**
      * Resilience rule: HIGH only when every live slice is OK; LOW if any critical
      * live slice is stale; MEDIUM if only non-critical live slices are stale.
-     * The always-planned architecture/knowledge placeholders do not by themselves
-     * force LOW — they are expected to be absent in MVP-1.
+     * Critical = delivery (jira) + quality/debt (sonar). Non-critical = code
+     * (github) + architecture (jqassistant + structurizr). The planned knowledge
+     * placeholder is excluded entirely and never forces LOW.
      */
     private static Confidence aggregateConfidence(List<DownstreamSlice> critical,
                                                   List<DownstreamSlice> nonCritical) {
@@ -325,6 +417,36 @@ public class DigitalTwinService {
         return recommendations;
     }
 
+    /**
+     * Architecture-derived recommendations from the live jQAssistant graph and
+     * Structurizr C4 model slices. Defensive against the downstream data shapes:
+     * jQAssistant's GraphState exposes {@code cycleCount} and
+     * {@code layeringViolationCount}; Structurizr's ArchitectureState exposes
+     * {@code parsedOk}.
+     */
+    private List<String> buildArchitectureRecommendations(DownstreamSlice jqa, DownstreamSlice structurizr) {
+        List<String> recommendations = new ArrayList<>();
+        Map<String, Object> graph = asMap(jqa.data());
+        if (graph != null) {
+            long cycles = asLong(graph.get("cycleCount"), 0L);
+            if (cycles > 0) {
+                recommendations.add(cycles + " dependency cycles detected (jQAssistant).");
+            }
+            long violations = asLong(graph.get("layeringViolationCount"), 0L);
+            if (violations > 0) {
+                recommendations.add(violations + " layering violations detected (jQAssistant).");
+            }
+        }
+        Map<String, Object> model = asMap(structurizr.data());
+        if (model != null) {
+            Object parsedOk = model.get("parsedOk");
+            if (parsedOk != null && !Boolean.parseBoolean(String.valueOf(parsedOk))) {
+                recommendations.add("C4 model (workspace.dsl) failed to parse/validate (Structurizr).");
+            }
+        }
+        return recommendations;
+    }
+
     // ------------------------------------------------------------- markdown
 
     private String renderStateReport(String type) {
@@ -398,17 +520,53 @@ public class DigitalTwinService {
     }
 
     private String renderArchitectureReport() {
+        McpResponse rescan = runArchitectureRescan();
         StringBuilder sb = new StringBuilder();
         sb.append("# Architecture Report\n\n");
         sb.append("- Generated: ").append(Instant.now()).append("\n");
-        sb.append("- Source: ").append(SOURCE).append("\n\n");
-        sb.append("> The architecture scan layer (jQAssistant + Structurizr) is planned (MVP-2+) ");
-        sb.append("and not yet running. Architecture state is a stale placeholder.\n\n");
-        DownstreamSlice sonar = fetchSonar();
-        DownstreamSlice github = fetchGithub();
-        sb.append("## Available signals\n\n");
-        sb.append("- Code (github-mcp): ").append(github.status()).append("\n");
-        sb.append("- Quality (sonar-mcp): ").append(sonar.status()).append("\n");
+        sb.append("- Source: ").append(SOURCE).append("\n");
+        sb.append("- Confidence: ").append(rescan.confidence()).append("\n");
+        sb.append("- Scan status: ").append(rescan.status()).append("\n");
+        if (rescan.message() != null) {
+            sb.append("- Note: ").append(rescan.message()).append("\n");
+        }
+        sb.append("\n");
+
+        if (!(rescan.data() instanceof ArchitectureSnapshot snapshot)) {
+            sb.append("_No architecture snapshot available._\n");
+            return sb.toString();
+        }
+
+        Map<String, Object> graph = asMap(snapshot.graph());
+        sb.append("## Code graph (jQAssistant)\n\n");
+        if (graph == null) {
+            sb.append("_jqassistant-mcp slice unavailable._\n\n");
+        } else {
+            sb.append("- Label counts: ").append(graph.get("labelCounts")).append("\n");
+            sb.append("- Dependencies: ").append(graph.get("dependencyCount")).append("\n");
+            sb.append("- Cycles: ").append(graph.get("cycleCount")).append("\n");
+            sb.append("- Layering violations: ").append(graph.get("layeringViolationCount")).append("\n\n");
+        }
+
+        Map<String, Object> model = asMap(snapshot.model());
+        sb.append("## C4 model (Structurizr)\n\n");
+        if (model == null) {
+            sb.append("_structurizr-mcp slice unavailable._\n\n");
+        } else {
+            sb.append("- Workspace: ").append(model.get("workspaceName")).append("\n");
+            sb.append("- Systems / containers / components: ")
+                    .append(model.get("systems")).append(" / ")
+                    .append(model.get("containers")).append(" / ")
+                    .append(model.get("components")).append("\n");
+            sb.append("- Relationships: ").append(model.get("relationships")).append("\n");
+            sb.append("- Views: ").append(model.get("views")).append("\n");
+            sb.append("- Parsed OK: ").append(model.get("parsedOk")).append("\n\n");
+        }
+
+        sb.append("## Drift signals\n\n");
+        for (String s : snapshot.driftSignals()) {
+            sb.append("- ").append(s).append("\n");
+        }
         return sb.toString();
     }
 
@@ -427,11 +585,28 @@ public class DigitalTwinService {
     }
 
     private DownstreamSlice fetchJqassistant() {
-        return DownstreamSlice.planned("jqassistant-mcp", "planned (MVP-2+): server not running");
+        return downstream.getPath(properties.getDownstream().getJqassistantMcp(),
+                "/api/jqassistant/state", "jqassistant-mcp");
+    }
+
+    private DownstreamSlice fetchJqassistantCycles() {
+        return downstream.getPath(properties.getDownstream().getJqassistantMcp(),
+                "/api/jqassistant/cycles", "jqassistant-mcp");
+    }
+
+    private DownstreamSlice fetchJqassistantViolations() {
+        return downstream.getPath(properties.getDownstream().getJqassistantMcp(),
+                "/api/jqassistant/violations", "jqassistant-mcp");
     }
 
     private DownstreamSlice fetchStructurizr() {
-        return DownstreamSlice.planned("structurizr-mcp", "planned (MVP-2+): server not running");
+        return downstream.getPath(properties.getDownstream().getStructurizrMcp(),
+                "/api/structurizr/state", "structurizr-mcp");
+    }
+
+    private DownstreamSlice fetchStructurizrValidate() {
+        return downstream.getPath(properties.getDownstream().getStructurizrMcp(),
+                "/api/structurizr/validate", "structurizr-mcp");
     }
 
     // ----------------------------------------------------------------- helpers
@@ -488,6 +663,18 @@ public class DigitalTwinService {
             }
         }
         return false;
+    }
+
+    /**
+     * Extract the {@code data} of a slice as a {@code List<Object>} (the
+     * {@code /cycles} and {@code /violations} endpoints return a JSON array).
+     * A stale slice or a non-list payload yields an empty list.
+     */
+    private static List<Object> sliceList(DownstreamSlice slice) {
+        if (slice.data() instanceof List<?> list) {
+            return new ArrayList<>(list);
+        }
+        return new ArrayList<>();
     }
 
     @SuppressWarnings("unchecked")

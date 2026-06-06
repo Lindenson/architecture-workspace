@@ -23,6 +23,8 @@
         <module>jira-mcp</module>
         <module>github-mcp</module>
         <module>sonar-mcp</module>
+        <module>jqassistant-mcp</module>
+        <module>structurizr-mcp</module>
         <module>digital-twin-core</module>
     </modules>
 

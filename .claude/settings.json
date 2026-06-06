@@ -31,6 +31,8 @@
     "digital-twin-core",
     "jira-mcp",
     "github-mcp",
-    "sonar-mcp"
+    "sonar-mcp",
+    "jqassistant-mcp",
+    "structurizr-mcp"
   ]
 }

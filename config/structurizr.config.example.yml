@@ -1,0 +1,9 @@
+# Copy to config/structurizr.config.yml (gitignored) OR set the matching env vars.
+# structurizr-mcp parses a Structurizr DSL workspace (the C4 model). File-based
+# parsing is primary; the Structurizr cloud/on-prem API is optional.
+structurizr:
+  workspace-path: ${STRUCTURIZR_WORKSPACE_PATH:../architecture/c4/workspace.dsl}
+  api:
+    url: ${STRUCTURIZR_API_URL:}
+    key: ${STRUCTURIZR_API_KEY:}
+    secret: ${STRUCTURIZR_API_SECRET:}

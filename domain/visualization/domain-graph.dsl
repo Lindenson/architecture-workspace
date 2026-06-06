@@ -37,7 +37,9 @@ workspace "Paydocs Domain" "Bounded-context map (EXAMPLE template)" {
         }
 
         styles {
-            element "bounded-context" { shape RoundedBox }
+            element "bounded-context" {
+                shape RoundedBox
+            }
         }
         theme default
     }

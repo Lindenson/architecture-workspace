@@ -1,0 +1,42 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: jqassistant-mcp
+  config:
+    import: "optional:file:${AIP_CONFIG_DIR:./config}/jqassistant.config.yml,optional:file:../config/jqassistant.config.yml"
+  ai:
+    mcp:
+      server:
+        name: jqassistant-mcp
+        version: 0.1.0
+        type: SYNC
+        sse-message-endpoint: /mcp/messages
+
+jqassistant:
+  neo4j:
+    uri: ${NEO4J_URI:bolt://localhost:7687}
+    user: ${NEO4J_USER:neo4j}
+    password: ${NEO4J_PASSWORD:}
+  scan-dir: ${JQA_SCAN_DIR:}
+  cli: ${JQA_CLI:}
+  layering:
+    controller-package: ${JQA_CONTROLLER_PACKAGE:*..controller..}
+    service-package: ${JQA_SERVICE_PACKAGE:*..service..}
+    repository-package: ${JQA_REPOSITORY_PACKAGE:*..repository..}
+
+aip:
+  security:
+    internal-token: ${AIP_INTERNAL_TOKEN:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  health:
+    # Neo4j is an optional, externally-managed source; the server degrades
+    # gracefully when it is down, so it must not drag /actuator/health to DOWN.
+    neo4j:
+      enabled: false

@@ -85,10 +85,18 @@ workspace "Paydocs Platform" "Payments + document-processing platform (EXAMPLE t
         }
 
         styles {
-            element "Person"    { shape Person }
-            element "database"  { shape Cylinder }
-            element "storage"   { shape Folder }
-            element "messaging" { shape Pipe }
+            element "Person" {
+                shape Person
+            }
+            element "database" {
+                shape Cylinder
+            }
+            element "storage" {
+                shape Folder
+            }
+            element "messaging" {
+                shape Pipe
+            }
         }
 
         theme default

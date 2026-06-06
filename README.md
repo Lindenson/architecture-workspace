@@ -4,7 +4,7 @@
 
 **A living digital twin of your software system — and the workspace that turns Claude into a Chief Enterprise Architect.**
 
-[![Status](https://img.shields.io/badge/status-MVP--1%20working-success)](#-roadmap)
+[![Status](https://img.shields.io/badge/status-MVP--2%20working-success)](#-roadmap)
 [![Java](https://img.shields.io/badge/Java-21-orange)](https://openjdk.org/projects/jdk/21/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4-brightgreen)](https://spring.io/projects/spring-boot)
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-1.0%20MCP-blue)](https://docs.spring.io/spring-ai/reference/api/mcp/mcp-overview.html)
@@ -88,9 +88,9 @@ checking each tool.**
                          └───┬──────────┬──────────┬──────┘
                   /api/state │          │          │ /api/state
               ┌──────────────▼┐   ┌─────▼──────┐  ┌▼─────────────┐
-              │  jira-mcp :8081│   │github :8082│  │ sonar  :8083 │   …planned: structurizr,
-              │  DELIVERY_STATE│   │ CODE_STATE │  │QUALITY/DEBT  │      jqassistant, wiki,
-              └───────┬────────┘   └─────┬──────┘  └──────┬───────┘      openspec, rag
+              │  jira-mcp :8081│   │github :8082│  │ sonar  :8083 │   + jqassistant :8085,
+              │  DELIVERY_STATE│   │ CODE_STATE │  │QUALITY/DEBT  │     structurizr :8084 (live);
+              └───────┬────────┘   └─────┬──────┘  └──────┬───────┘     planned: wiki, openspec, rag
                       │                  │                │
                  ┌────▼───┐         ┌────▼────┐      ┌─────▼─────┐
                  │  Jira  │         │ GitHub/ │      │ SonarQube │
@@ -215,8 +215,8 @@ Secrets come from `.env` / `config/*.config.yml` (gitignored). See
 | `jira-mcp`         | 8081 | ✅ MVP-1    | Jira REST           | `DELIVERY_STATE`       |
 | `github-mcp`       | 8082 | ✅ MVP-1    | GitHub / GitLab REST| `CODE_STATE`           |
 | `sonar-mcp`        | 8083 | ✅ MVP-1    | SonarQube Web API   | `QUALITY_STATE`, debt  |
-| `structurizr-mcp`  | 8084 | 🔜 MVP-2    | Structurizr DSL/API | `ARCHITECTURE_MODEL`   |
-| `jqassistant-mcp`  | 8085 | 🔜 MVP-2    | Neo4j (jQAssistant) | `ARCHITECTURE_GRAPH`   |
+| `structurizr-mcp`  | 8084 | ✅ MVP-2    | Structurizr DSL (C4) | `ARCHITECTURE_MODEL`  |
+| `jqassistant-mcp`  | 8085 | ✅ MVP-2    | Neo4j (jQAssistant) | `ARCHITECTURE_GRAPH`   |
 | `rag-mcp`          | 8088 | 🔜 MVP-3    | Postgres + pgvector | `CONTEXT_PACKS`        |
 | `wiki-mcp`         | 8086 | 🔜 MVP-3    | Confluence / Wiki   | `KNOWLEDGE_DOCUMENTS`  |
 | `openspec-mcp`     | 8087 | 🔜 MVP-4    | OpenSpec repo       | `DESIGN_CONTRACTS`     |
@@ -265,9 +265,14 @@ The agent contract lives in `.claude/`:
 - ArchUnit enforcement module, automation scripts, `docker-compose` (pgvector + Neo4j + servers), pgvector schema
 - All secrets externalized; verified: reactor builds, tests pass, servers boot and serve MCP/SSE
 
-### 🔜 MVP-2 — Architecture graph
-- `jqassistant-mcp` (Neo4j bytecode graph: cycles, layering, drift)
-- `structurizr-mcp` (C4 model read/validate/generate, drift vs code)
+### ✅ Done — MVP-2 (architecture graph)
+- `jqassistant-mcp` — read-only Cypher over the Neo4j bytecode graph: cycles,
+  layering violations, coupling/god-classes, blast-radius, `getState → ARCHITECTURE_GRAPH`
+- `structurizr-mcp` — parse/validate `workspace.dsl`, list C4 elements/views,
+  `detectDrift`, `getState → ARCHITECTURE_MODEL`
+- `digital-twin-core.runArchitectureRescan` now performs a **real** scan
+  (jQAssistant + Structurizr) and surfaces drift signals; architecture state is
+  live in `SHOW_PROJECT_STATE`
 
 ### 🔜 MVP-3 — Knowledge & RAG
 - `rag-mcp` (Postgres + pgvector retrieval over ADRs, wiki, code docs, project memory)

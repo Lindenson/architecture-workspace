@@ -47,10 +47,24 @@ public class DownstreamClient {
      * @param label   provenance label used when the call itself fails
      */
     public DownstreamSlice fetchState(String baseUrl, String svc, String label) {
+        return getPath(baseUrl, "/api/" + svc + "/state", label);
+    }
+
+    /**
+     * GET an arbitrary sub-path on a downstream MCP server with a bearer token and
+     * normalize the {@code McpResponse}-shaped body into a {@link DownstreamSlice}.
+     * Same never-throw contract as {@link #fetchState}: a blank base URL, a
+     * connection error, timeout, non-2xx response or empty body all become a
+     * {@code DATA_STALE} slice rather than an exception.
+     *
+     * @param baseUrl downstream base URL
+     * @param path    absolute request path (e.g. {@code /api/jqassistant/cycles})
+     * @param label   provenance label used when the call itself fails
+     */
+    public DownstreamSlice getPath(String baseUrl, String path, String label) {
         if (baseUrl == null || baseUrl.isBlank()) {
-            return DownstreamSlice.unreachable(label, svc + "-mcp: base URL not configured");
+            return DownstreamSlice.unreachable(label, label + ": base URL not configured");
         }
-        String path = "/api/" + svc + "/state";
         try {
             RestClient client = RestClientFactory.bearer(baseUrl, properties.getInternalToken());
             Map<String, Object> body = client.get()
@@ -58,13 +72,13 @@ public class DownstreamClient {
                     .retrieve()
                     .body(MAP_TYPE);
             if (body == null) {
-                return DownstreamSlice.unreachable(label, svc + "-mcp: empty response from " + path);
+                return DownstreamSlice.unreachable(label, label + ": empty response from " + path);
             }
             return normalize(body, label);
         } catch (Exception e) {
-            log.warn("downstream {} unreachable at {}{}: {}", svc, baseUrl, path, e.toString());
+            log.warn("downstream {} unreachable at {}{}: {}", label, baseUrl, path, e.toString());
             return DownstreamSlice.unreachable(label,
-                    svc + "-mcp: unreachable (" + e.getClass().getSimpleName() + "): " + e.getMessage());
+                    label + ": unreachable (" + e.getClass().getSimpleName() + "): " + e.getMessage());
         }
     }
 
