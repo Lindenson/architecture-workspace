@@ -185,7 +185,16 @@ architecture-workspace/
 
 **Prerequisites:** JDK 21+, Maven 3.9+, Docker (optional), and a Claude Code client.
 
+> 📦 **Get the code with `git clone` — not "Download ZIP".** The agent's contract
+> lives in the **hidden** `.claude/` directory, alongside hidden dot-files
+> (`.mcp.json`, `.env.example`). ZIP extractors that hide dot-files, or copying
+> with `cp *`, silently drop them. Verify any checkout with `./automation/doctor.sh`.
+
 ```bash
+git clone https://github.com/Lindenson/architecture-workspace.git
+cd architecture-workspace
+./automation/doctor.sh                 # preflight: confirms the contract is intact
+
 # 1. Secrets — copy the template and fill in your tokens
 cp .env.example .env && $EDITOR .env
 
