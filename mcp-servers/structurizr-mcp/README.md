@@ -12,7 +12,7 @@ hierarchy, **code is authoritative** (Git → jQAssistant/ArchUnit → Structuri
 The DSL should be **regenerated from code** (jQAssistant → Structurizr) and any
 divergence surfaced via `detectDrift` rather than hand-edited as ground truth.
 
-Part of the `eu.transplat.aip:mcp-servers` reactor. Returns the canonical
+Part of the `com.wolper.aip:mcp-servers` reactor. Returns the canonical
 `McpResponse` (`data` / `status` / `source` / `confidence`) on every call, with
 `source = "structurizr-mcp:workspace.dsl"`.
 

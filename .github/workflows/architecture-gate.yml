@@ -38,7 +38,12 @@ jobs:
         working-directory: mcp-servers
 
   archunit:
-    name: ArchUnit constraints
+    # HONEST NAMING: architecture-tests/ is a TEMPLATE for product repositories.
+    # It has no dependency on any product code, so ClassFileImporter finds zero
+    # classes and every rule in it is @Disabled. This job proves the template
+    # still compiles — it does NOT enforce architecture here, and calling it a
+    # gate would be exactly the self-deception this repo exists to prevent.
+    name: ArchUnit template compiles
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,8 +51,31 @@ jobs:
         with: { java-version: '21', distribution: 'temurin', cache: maven }
       - run: mvn -B -ntp test
         working-directory: architecture-tests
-      - if: failure()
-        run: echo "::error::ArchUnit violations — an architecture/constraints/ rule is broken. Report: architecture-tests/target/surefire-reports/"
+      - name: Say plainly what this did and did not check
+        run: |
+          echo "::notice::architecture-tests is a template: rules are @Disabled and import no product code."
+          echo "::notice::To make it a real gate, copy it into a product repo, add that product as a"
+          echo "::notice::dependency, set -Darchunit.base.package=<root> and remove the @Disabled annotations."
+
+  layer-naming:
+    name: Persistence layer has one name
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every module names the persistence layer 'repository'
+        run: |
+          set -euo pipefail
+          # The layering rule matches package globs. Three names for one layer
+          # (repository / store / persistence) meant the rule matched nothing and
+          # passed vacuously. One name, checked by the machine.
+          bad=$(find mcp-servers -type d \( -name store -o -name persistence -o -name dao \) \
+                  -path '*/src/main/java/*' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::persistence packages must be named 'repository':"
+            echo "$bad" | sed 's/^/  /'
+            exit 1
+          fi
+          echo "persistence layer is consistently named 'repository'"
 
   structurizr:
     name: C4 model validity

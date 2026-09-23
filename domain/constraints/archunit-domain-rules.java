@@ -11,12 +11,12 @@
  * and wire into the build so the ArchUnit gate fails on violation.
  *
  * Assumed package layout (EXAMPLE):
- *   eu.transplat.product.<context>.api          // controllers, DTOs
- *   eu.transplat.product.<context>.service      // application/domain services
- *   eu.transplat.product.<context>.domain       // aggregates, entities, value objects
- *   eu.transplat.product.<context>.persistence  // JPA entities, repositories
+ *   com.example.product.<context>.api          // controllers, DTOs
+ *   com.example.product.<context>.service      // application/domain services
+ *   com.example.product.<context>.domain       // aggregates, entities, value objects
+ *   com.example.product.<context>.persistence  // JPA entities, repositories
  */
-package eu.transplat.product.archunit;
+package com.example.product.archunit;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -29,10 +29,10 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
-@AnalyzeClasses(packages = "eu.transplat.product")
+@AnalyzeClasses(packages = "com.example.product")
 class DomainArchitectureRules {
 
-    private static final String BASE = "eu.transplat.product";
+    private static final String BASE = "com.example.product";
 
     // Controllers must NOT access repositories directly (layering constraint rule 2).
     @ArchTest
