@@ -1,0 +1,35 @@
+# The only gate an agent cannot write its own way past.
+#
+# Everything in this harness that lives in the working tree — critique.md
+# statuses, decisions.md rows, gate-log entries — is written by an agent and can
+# therefore be written differently by an agent. Local hooks are an AUDIT TRAIL.
+# THIS FILE, plus branch protection requiring code-owner review, is the LOCK.
+#
+# Enable in Settings → Branches → Require a pull request → Require review from
+# Code Owners. Without branch protection this file is documentation.
+
+# Governance: only the architect approves
+/architecture/adr/                  @Lindenson
+/architecture/constraints/          @Lindenson
+/architecture/standards/            @Lindenson
+/architecture/c4/                   @Lindenson
+/architecture/target-architecture/  @Lindenson
+/domain/model/                      @Lindenson
+/domain/constraints/                @Lindenson
+/delivery/roadmap/                  @Lindenson
+
+# The harness itself. A governance contract that changes silently underneath ten
+# developers is worse than no contract.
+/.claude/                           @Lindenson
+/.claude-plugin/                    @Lindenson
+/.github/                           @Lindenson
+/integration/                       @Lindenson
+
+# Human decision ledgers: reviewed so a reviewer can see what a PERSON decided
+# versus what the agent chose on its own.
+/specs/**/decisions.md              @Lindenson
+/specs/**/critique.md               @Lindenson
+/specs/**/gate-log.md               @Lindenson
+
+# Project memory is append-only history — reviewed, never rewritten.
+/project-memory/                    @Lindenson

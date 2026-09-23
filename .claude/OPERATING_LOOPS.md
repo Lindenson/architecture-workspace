@@ -71,9 +71,9 @@ HUMAN INTENT
       │
       ▼
 /spec-critic            →  specs/<feature>/critique.md     ← J2 (gate)
-      │
+      │                    + OPEN rows in decisions.md
       ▼
-              ══ HUMAN GATE 1 ══
+              ══ HUMAN GATE 1 ══  answers land in decisions.md
       │
       ▼
 /speckit-plan → /speckit-checklist → /speckit-tasks → /speckit-analyze
@@ -123,15 +123,42 @@ Without J1 the spec is written blind and the critic has nothing to cite.
 ### J2 — Gate (A → B), before implementation
 
 **Produced by** `spec-critic` → `specs/<feature>/critique.md` with
-`Status: BLOCKED | NEEDS_DECISION | READY`.
+`Status: BLOCKED | NEEDS_DECISION | READY`, and — crucially — by
+`specs/<feature>/decisions.md`, the **human decision ledger**.
+
+The ledger is where the man-in-the-middle actually stands. `impact.md` and
+`critique.md` append `OPEN` rows (question, who raised it, the real options); a
+human fills in the answer, who answered, and when. Agents may raise rows and may
+never answer them. The gate counts `OPEN` rows; CI fails a PR that still carries
+one; `decision-capture` reads the answered rows as its input instead of
+reconstructing intent from a diff.
+
+Without this ledger the three HUMAN GATEs are arrows on a diagram: questions get
+asked in `critique.md`, answered in a chat window, and lost. Template:
+[`../integration/specify/decisions.template.md`](../integration/specify/decisions.template.md).
 
 The critic is adversarial but never authoritative: it cannot approve itself,
 cannot invent requirements, cannot edit `spec.md`. Its evidence comes from Loop A
 (graph, ADRs, constraints, domain model, debt register), which is what makes it
 more than a style review.
 
-**Enforcement:** `.claude/hooks/guard-speckit-phase.sh` blocks
-`speckit-implement` while `critique.md` is missing or `BLOCKED`.
+**Enforcement — and its honest limit.** `.claude/hooks/guard-speckit-phase.sh`
+blocks `speckit-implement` while `critique.md` is missing or `BLOCKED`, and
+while `decisions.md` still has `OPEN` rows. But `critique.md` is written by an
+agent, so a gate that reads it is an **audit trail, not a lock**: an agent can
+set the status itself.
+
+What the hook actually guarantees is that every evaluation — pass, block,
+warning, override — lands in `specs/<feature>/gate-log.md`, which travels into
+the PR. The enforcement an agent cannot write past is
+[`.github/CODEOWNERS`](../.github/CODEOWNERS) plus branch protection, and the CI
+job that fails a PR carrying an `OPEN` decision row. Treat the local hook as the
+fast feedback loop and the PR as the gate.
+
+Every gate is configurable in `.claude/aip.config.yml` (`block` / `warn` / `off`)
+and every block can be overridden with `AIP_GATE_OVERRIDE="<reason>"`, which is
+always allowed and always logged. A gate that is wrong once and cannot be
+bypassed gets deleted — along with the cases where it was right.
 
 ### J3 — Feedback (B → A), after convergence
 
@@ -146,7 +173,13 @@ hooks:
     - architecture-drift-analysis   # did code and model diverge?
     - decision-capture              # what was decided, and why
     - tech-debt-delta               # what debt was closed / created
+    - knowledge-reindex             # make it findable next session (optional)
 ```
+
+All four exist as skills under `.claude/skills/`. The entry format above is read
+from `.specify/extensions.yml` by Spec Kit after `converge`; verify the exact
+schema your Spec Kit version expects before relying on it —
+`integration/README.md` says how.
 
 `decision-capture` appends to `project-memory/` and, where the decision is
 durable, emits an ADR **draft** for the architect. It never writes a final ADR.
@@ -177,7 +210,21 @@ A human owns every decision at the three gates.
 
 Corollary — **one loop per session**. The agent that implements a feature is not
 the agent that certifies the architecture afterwards. Use separate sessions or
-subagents with isolated context; the hooks enforce the ordering, not your memory.
+subagents with isolated context; the hooks track the ordering so you do not have
+to remember it, and the PR enforces it.
+
+## What is a lock and what is a log
+
+| Mechanism | Strength | Why |
+|---|---|---|
+| `.github/CODEOWNERS` + branch protection | **lock** | outside the working tree; an agent cannot approve a PR as the architect |
+| CI `human-gate` job (no `OPEN` rows) | **lock** | runs on the merge path, not on the agent's machine |
+| `guard-speckit-phase.sh` | log + fast feedback | reads agent-written files; overridable by design |
+| `mark-drift-pending.sh` | log + fast feedback | blocks in Loop B, warns in Loop A |
+| `gate-log.md`, `decisions.md`, `project-memory/` | evidence | append-only, travels into the PR, feeds `automation/harness-metrics.sh` |
+
+Do not confuse the rows. Most of the value of the local hooks is that they make
+the right thing the cheap thing; none of it is that they are unbreakable.
 
 ## When a change does not need Loop B
 

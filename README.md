@@ -119,13 +119,39 @@ They exchange four named artifacts. A human owns every gate.
 ```
 
 Corollary: **one loop per session.** The agent that implements a feature is not
-the agent that certifies the architecture afterwards. The ordering is enforced by
-hooks, not by remembering — `.claude/hooks/guard-speckit-phase.sh` blocks
-`speckit-implement` while `critique.md` is missing or `BLOCKED`, and
-`mark-drift-pending.sh` blocks any session from editing an ADR, a constraint or
-the C4 model to make drift disappear.
+the agent that certifies the architecture afterwards.
+
+### Where the human actually stands
+
+`specs/<feature>/decisions.md` is the **decision ledger**: `impact.md` and
+`critique.md` append `OPEN` rows (question · who raised it · real options); a
+human fills in the answer. Agents may raise rows and may never answer them. The
+gate counts open rows, CI fails a PR that still carries one, and
+`decision-capture` reads the answered rows instead of guessing intent from a
+diff. Without it, "HUMAN GATE" is an arrow on a diagram.
+
+### Locks and logs — stated plainly
+
+Local hooks read files that an agent writes, so they are **fast feedback and an
+audit trail, not a lock**. Every evaluation lands in `gate-log.md`, which travels
+into the PR.
+
+| Mechanism | What it is |
+|---|---|
+| `.github/CODEOWNERS` + branch protection | **lock** — outside the working tree |
+| CI `human-gate` (no `OPEN` decision rows) | **lock** — on the merge path |
+| `guard-speckit-phase.sh` · `mark-drift-pending.sh` | log + fast feedback, overridable by design |
+| `gate-log.md` · `decisions.md` · `project-memory/` | evidence, and the input to `automation/harness-metrics.sh` |
+
+Everything is tunable in [`.claude/aip.config.yml`](.claude/aip.config.yml) —
+gate `block` / `warn` / `off`, which phases are gated, which paths are
+architect-owned per loop, retrieval mode, blast-radius depth. Start a team on
+`warn`, read the gate log for two weeks, then switch to `block`. A gate that is
+wrong once and cannot be overridden gets deleted along with the cases where it
+was right; `AIP_GATE_OVERRIDE="<reason>"` always works and is always logged.
 
 Full contract: [`.claude/OPERATING_LOOPS.md`](.claude/OPERATING_LOOPS.md).
+Verify the harness on your machine: `./automation/verify-hooks.sh` (26 checks).
 
 ---
 
@@ -201,10 +227,11 @@ decisions were made (and rejected).
 architecture-workspace/
 ├── .claude/              Agent governance contract
 │   ├── OPERATING_LOOPS.md  ★ the two-loop contract and its four join points
+│   ├── aip.config.yml      ★ the one place the harness is tuned
 │   ├── *.md                ROLE, OPERATING_MODEL, AGENT_RUNTIME, MCP_ORCHESTRATION_MAP …
 │   ├── agents/             7 subagents (architecture, debt, delivery, …)
 │   ├── hooks/              ★ phase gate · governance guard · drift flag · memory digest
-│   └── skills/             20 skills (session-orientation, spec-critic, …)
+│   └── skills/             22 skills (session-orientation, spec-critic, …)
 ├── .claude-plugin/       ★ plugin + marketplace manifests (install into product repos)
 ├── integration/          ★ how to wire this into a product repo (Spec Kit, hooks, CI)
 ├── knowledge/            L0-ish Project knowledge (vision, domain, glossary, stakeholders)
@@ -216,7 +243,8 @@ architecture-workspace/
 ├── reports/              Generated daily/weekly/release/architecture reports
 ├── rag/                  RAG layer (sources → chunks → embeddings → index) — MVP-3
 ├── project-memory/       Decision journal (why, including rejected options)
-├── automation/           Nightly pipeline & scan scripts
+├── automation/           Nightly pipeline, scan scripts, harness self-test & metrics
+├── specs/                Loop B artifacts (spec · impact · decisions · critique · gate-log)
 ├── config/              Credential templates (real files gitignored)
 ├── jqassistant/          Scan rules & reports — MVP-2
 ├── mcp-servers/          Java Spring Boot MCP servers (Maven reactor)
@@ -337,11 +365,13 @@ Or invoke a **skill** directly (e.g. `/architecture-review`, `/release-readiness
 
 ## 🧩 Skills & subagents
 
-**4 loop skills** — the spine of the two-loop model:
-`session-orientation` (read first: which loop am I in) ·
+**6 loop skills** — the spine of the two-loop model:
+`session-orientation` (which loop am I in) ·
 `feature-impact-analysis` (J1 — spec → graph blast radius → binding ADRs → debt) ·
 `spec-critic` (J2 — adversarial review, `BLOCKED`/`NEEDS_DECISION`/`READY`) ·
-`decision-capture` (J3 — decisions, including rejected options, into long-term memory).
+`decision-capture` (J3 — decisions, including rejected options, into memory) ·
+`tech-debt-delta` (J3 — what debt this feature closed, created or deferred) ·
+`knowledge-reindex` (J4 — make the new decisions retrievable next session).
 
 **16 analysis skills** (`.claude/skills/`) — Loop A business scenarios:
 `architecture-review` · `adr-review` · `architecture-drift-analysis` ·
@@ -402,7 +432,18 @@ new session:  /speckit-implement ⇄ /speckit-converge
               PR → independent review           ══ HUMAN ══ → merge
 ```
 
-Details, including the CI gate and what *not* to copy between repos:
+Plus the decision ledger, which is what makes the human gates real:
+
+```bash
+cp integration/specify/decisions.template.md <product-repo>/specs/<feature>/decisions.md
+```
+
+And the lock, without which the rest is advisory: copy
+[`.github/CODEOWNERS`](.github/CODEOWNERS) and enable *Require review from Code
+Owners* in branch protection.
+
+Details, including the CI gate, how to verify the hook schema against your own
+Claude Code build, and what *not* to copy between repos:
 [`integration/README.md`](integration/README.md).
 
 ---
@@ -423,6 +464,13 @@ Every shipped MVP was built and exercised, not just written:
 - **RAG (MVP-3):** against Postgres+pgvector with **local ONNX embeddings**,
   reindexed **41 files → 84 chunks** and returned ranked, cited vector-search hits;
   with the layer off, the knowledge slice reports `DISABLED`.
+- **Harness (MVP-4):** `./automation/verify-hooks.sh` runs **26 assertions**
+  against the real hook scripts — phase ordering, the decisions gate, override
+  logging, `block`/`warn`/`off` modes, loop-aware governance guard, drift
+  bookkeeping and reset, and the session digest. Green in CI.
+- **Retrieval honesty:** the session digest states which mode produced it —
+  `semantic retrieval (rag-mcp)` or `DEGRADED to newest-first`. It never presents
+  a filename sort as semantic search.
 
 ---
 

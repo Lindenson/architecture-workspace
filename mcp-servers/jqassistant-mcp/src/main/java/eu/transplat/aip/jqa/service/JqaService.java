@@ -69,8 +69,12 @@ public class JqaService {
 
     @Tool(description = "Run an arbitrary READ-ONLY Cypher query against the jQAssistant bytecode graph in Neo4j. "
             + "Write/DDL statements (CREATE, MERGE, DELETE, SET, REMOVE, DROP, LOAD CSV, apoc writes) are rejected. "
-            + "If 'limit' is given and the query has no LIMIT, one is appended.")
-    public McpResponse queryGraph(String cypher, Integer limit) {
+            + "If 'limit' is given and the query has no LIMIT, one is appended. "
+            + "'params' supplies named Cypher parameters ($name), which is REQUIRED for set-based queries such as "
+            + "blast-radius analysis: pass {\"seeds\": [\"com.acme.Order\", \"com.acme.Payment\"]} and reference $seeds. "
+            + "Always prefer parameters over string interpolation — interpolated lists break on quoting and defeat "
+            + "the query planner's cache.")
+    public McpResponse queryGraph(String cypher, Integer limit, Map<String, Object> params) {
         if (cypher == null || cypher.isBlank()) {
             return McpResponse.error(SOURCE, "Cypher query must not be blank.");
         }
@@ -78,9 +82,10 @@ public class JqaService {
             return McpResponse.error(SOURCE,
                     "Rejected: only read-only Cypher is allowed (no CREATE/MERGE/DELETE/SET/REMOVE/DROP/LOAD CSV/apoc writes).");
         }
+        Map<String, Object> safeParams = params == null ? Map.of() : Map.copyOf(params);
         String effective = applyLimit(cypher, limit);
         try {
-            List<Map<String, Object>> rows = graph.read(effective, Map.of());
+            List<Map<String, Object>> rows = graph.read(effective, safeParams);
             return McpResponse.ok(rows, SOURCE);
         } catch (Exception e) {
             return failure("queryGraph", e);

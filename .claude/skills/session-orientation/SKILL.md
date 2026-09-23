@@ -10,9 +10,16 @@ Prevent the single most expensive failure mode of this platform: mixing the
 observation loop with the change loop. Full contract in
 [`../../OPERATING_LOOPS.md`](../../OPERATING_LOOPS.md).
 
+**The SessionStart hook, not this skill, is the authoritative statement of which
+loop you are in** — skill routing is model-driven and may not fire, whereas the
+hook always runs and prints `LOOP: A` or `LOOP: B`. Read this skill for the
+*rules that follow from* the loop: write rights, the legal next step, and what to
+do when a task needs a write the loop forbids. If the digest is absent (hooks not
+wired), fall back to step 1 below and say so.
+
 ## Procedure
 
-### 1. Determine the loop — before reading anything else
+### 1. Determine the loop — if the session digest did not already say
 
 | Signal | Loop |
 |---|---|
@@ -90,3 +97,9 @@ Then answer the request under that loop's rules.
   human decides.
 - On any conflict between sources, the source-of-truth hierarchy in
   `CLAUDE.md` applies in both loops. Code always wins.
+- A blocked hook is information. Produce the missing artifact rather than
+  routing around it — and if the gate is genuinely wrong, use
+  `AIP_GATE_OVERRIDE="<reason>"`, which is allowed and recorded, instead of
+  editing the artifact the gate reads.
+- Loop B: raise questions in `decisions.md`; never answer them. Filling in a
+  human's answer defeats the only place a person is recorded as deciding.

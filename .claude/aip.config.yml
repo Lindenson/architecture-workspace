@@ -1,0 +1,56 @@
+# AIP harness configuration — the single place where the governance harness is tuned.
+#
+# Read by every hook via .claude/hooks/lib.sh (`cfg <section>.<key> <default>`).
+#
+# PARSER LIMITS (deliberate — the parser is 20 lines of awk with no dependencies):
+#   · exactly two levels: `section:` at column 0, `  key: value` indented 2 spaces
+#   · scalars and inline lists `[a, b, c]` only — no block lists, no nesting
+#   · `#` starts a comment anywhere outside a quoted value
+# `automation/verify-hooks.sh` fails if this file stops parsing. Keep it flat.
+
+gate:
+  # block = exit 2 and stop  ·  warn = emit the reason, allow  ·  off = no gate
+  # Start a team on `warn` for two weeks, read gate-log.md, then move to `block`.
+  # A gate that is wrong once and cannot be overridden gets deleted entirely.
+  mode: block
+  # Which Loop B phases are gated. Remove a phase to stop gating it.
+  phases: [feature-impact-analysis, spec-critic, speckit-plan, speckit-implement, speckit-converge]
+  # Require every question in specs/<feature>/decisions.md to be answered
+  # before plan/implement. This is the man-in-the-middle check.
+  require_decisions_closed: true
+  # Env var that carries a human's override reason. Overrides are always allowed
+  # and always logged — an escape hatch that leaves a trace beats a locked door.
+  override_env: AIP_GATE_OVERRIDE
+  # Append-only record of every gate evaluation, relative to the feature dir.
+  log_file: gate-log.md
+
+architect_owned:
+  # Mode per loop. In Loop A this workspace IS the architect's desk: blocking
+  # here would block their primary job, so warn. In Loop B, block.
+  loop_a_mode: warn
+  loop_b_mode: block
+  paths: [architecture/adr/ADR-*.md, architecture/constraints/**, architecture/standards/**, architecture/c4/workspace.dsl, architecture/target-architecture/**, domain/model/**, domain/constraints/**, delivery/roadmap/**]
+  # Never hand-editable in any loop — regenerate instead.
+  generated_paths: [domain/raw/**]
+  draft_paths: [architecture/adr/drafts/**, knowledge/drafts/**, quality/technical-debt/drafts/**]
+
+memory:
+  # How many entries the SessionStart digest shows.
+  digest_size: 5
+  # rag    = semantic retrieval scoped to the active feature (needs rag-mcp up)
+  # recent = newest entries by filename date (always works, no dependency)
+  retrieval: recent
+  rag_url: http://localhost:8088
+  rag_timeout_seconds: 3
+
+impact:
+  # Depth of the reverse blast-radius traversal in the dependency graph.
+  max_depth: 3
+  # Confidence ceiling when the graph is unavailable and we fall back to packages.
+  cap_confidence_without_graph: MEDIUM
+
+drift:
+  flag_file: .claude/.drift-pending
+  max_entries: 200
+  code_extensions: [java, kt, kts, go, py, ts, tsx, js, cs, rb, rs, sql, proto, yaml, yml]
+  ignore_globs: [*/test/*, */tests/*, *.test.*, *.spec.*, .claude/*, reports/*, specs/*]

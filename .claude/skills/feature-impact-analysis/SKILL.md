@@ -59,9 +59,29 @@ WHERE coalesce(a.fqn,a.name) IN $radius
 RETURN coalesce(a.fqn,a.name) AS from, coalesce(b.fqn,b.name) AS to
 ```
 
+**Pass the sets as Cypher parameters, never by string interpolation.**
+`queryGraph(cypher, limit, params)` takes a named-parameter map:
+
+```json
+{ "cypher": "MATCH path = (caller)-[:DEPENDS_ON*1..$depth]->(seed:Type) ...",
+  "limit": 500,
+  "params": { "seeds": ["eu.acme.order.Order", "eu.acme.order.OrderService"],
+              "ownContextPackage": "eu.acme.order",
+              "foreignContextPackages": ["eu.acme.payment", "eu.acme.shipment"] } }
+```
+
+Interpolating a list of FQNs into the query text breaks on quoting, defeats the
+planner cache, and silently truncates the radius when one name contains a
+character you did not escape — which looks exactly like a small blast radius.
+
+Depth comes from `impact.max_depth` in `.claude/aip.config.yml` (default 3).
+Neo4j does not parameterize the `*1..n` bound, so substitute the configured
+integer into the query text and pass everything else as parameters.
+
 Use `dependentsOf` / `dependenciesOf` when a single FQN is enough; drop to
 `queryGraph` for the set-based queries above. If Neo4j is unavailable, say so,
-fall back to Structurizr + package structure, and cap confidence at `MEDIUM`.
+fall back to Structurizr + package structure, and cap confidence at the value of
+`impact.cap_confidence_without_graph` (default `MEDIUM`).
 
 ### 3. Map the radius onto the architecture
 - Which Structurizr containers/components does it cover? (`listElements`)
@@ -119,6 +139,10 @@ UNRESOLVED: ...
 | ID | Severity | Relation to this feature |
 
 ## Architectural decisions this feature forces
+Each one is ALSO appended as a row to `specs/<feature>/decisions.md` with status
+`OPEN`. That ledger is what the human answers and what the gate counts; this
+section is the reasoning behind the rows.
+
 DECISION REQUIRED: <question> — Option A ... Option B ... trade-offs ... impact ...
 
 ## Recommended scope for /speckit-plan
@@ -129,6 +153,9 @@ DECISION REQUIRED: <question> — Option A ... Option B ... trade-offs ... impac
 - Read-only. Never modify product code, `spec.md`, ADRs or the C4 model.
 - Never invent a mapping from a spec noun to a class. `UNRESOLVED` is a valid and
   useful answer; a wrong FQN silently shrinks the blast radius.
-- Do not resolve `DECISION REQUIRED` items yourself — surface them for the human.
+- Do not resolve `DECISION REQUIRED` items yourself. Append them to
+  `decisions.md` as `OPEN` rows with the options filled in, and leave the
+  `Answer`, `Answered by` and `Status` columns alone. Writing a human's answer
+  for them is the failure the ledger exists to prevent.
 - Graph unavailable → degrade, mark `DATA_STALE`, cap confidence. Never
   substitute a plausible-looking radius for a measured one.

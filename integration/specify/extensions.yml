@@ -11,6 +11,15 @@
 # is exactly the moment the architecture model may have gone stale.
 #
 # Entries without an `enabled` field are enabled by default.
+#
+# VERIFY THE SCHEMA FIRST. The exact shape of an after_converge entry depends on
+# your Spec Kit version. Before relying on this file, run `/speckit-converge` on
+# a throwaway feature and confirm the hooks fire; if the schema differs, the
+# four skills below still work when invoked by hand — the wiring is the only
+# part that is version-dependent, not the contract.
+#
+# All four named here exist as skills in .claude/skills/ and are checked by CI
+# (contract-integrity → "Skills referenced by extensions.yml exist").
 
 hooks:
   after_converge:
@@ -45,7 +54,10 @@ hooks:
     #    with this feature's decisions already in context (join point J4).
     #    Requires KNOWLEDGE_ENABLED=true and rag-mcp running.
     - name: knowledge-reindex
-      description: rag-mcp.indexPath over project-memory/ and specs/.
+      description: >
+        rag-mcp.indexPath over project-memory/ and specs/, with a probe query to
+        prove the entry is actually retrievable. Without this, J4 degrades to
+        "newest five files by name" — which the session digest will say out loud.
       enabled: false
 
 # ----------------------------------------------------------------------------

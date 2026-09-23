@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -47,14 +48,17 @@ public class JqaController {
         return service.findLayeringViolations();
     }
 
-    /** Read-only Cypher via query string: {@code GET /api/jqassistant/cypher?q=...&limit=...}. */
+    /** Read-only Cypher via query string: {@code GET /api/jqassistant/cypher?q=...&limit=...}.
+     *  Named parameters are not expressible on a query string — use the POST form for
+     *  set-based queries such as blast-radius analysis. */
     @GetMapping("/cypher")
     public McpResponse cypherGet(@RequestParam("q") String q,
                                  @RequestParam(value = "limit", required = false) Integer limit) {
-        return service.queryGraph(q, limit);
+        return service.queryGraph(q, limit, Map.of());
     }
 
-    /** Read-only Cypher via JSON body: {@code {"cypher": "...", "limit": 100}}. */
+    /** Read-only Cypher via JSON body:
+     *  {@code {"cypher": "...", "limit": 100, "params": {"seeds": ["com.acme.Order"]}}}. */
     @PostMapping("/cypher")
     public McpResponse cypherPost(@RequestBody Map<String, Object> body) {
         String cypher = body.get("cypher") == null ? null : String.valueOf(body.get("cypher"));
@@ -69,6 +73,13 @@ public class JqaController {
                 // leave limit null
             }
         }
-        return service.queryGraph(cypher, limit);
+        Map<String, Object> params = Map.of();
+        Object rawParams = body.get("params");
+        if (rawParams instanceof Map<?, ?> m) {
+            Map<String, Object> collected = new LinkedHashMap<>();
+            m.forEach((k, v) -> collected.put(String.valueOf(k), v));
+            params = collected;
+        }
+        return service.queryGraph(cypher, limit, params);
     }
 }

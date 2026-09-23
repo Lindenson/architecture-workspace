@@ -1,67 +1,66 @@
 #!/usr/bin/env bash
-# PostToolUse:Edit|Write|MultiEdit hook.
+# PostToolUse hook — governance guard + drift bookkeeping.
 #
-# Two jobs:
-#   1. Protect governance artifacts from Loop B. Editing a numbered ADR, a
-#      constraint, a standard, the validated domain model or the C4 workspace is
-#      an architect decision — the agent emits a draft instead. Exit 2 blocks.
-#   2. Record that product code changed, so the next session and the nightly
-#      pipeline know the architecture model may have drifted.
-#
-# Always cheap, never chatty: no stdout on the happy path.
+# The guard is LOOP-AWARE. This workspace is the architect's own desk: in Loop A
+# they approve ADRs and edit constraints, and a hook that blocks that blocks
+# their primary job — after which the hook gets deleted along with its useful
+# half. So: warn in Loop A, block in Loop B. Both modes are configurable.
 set -uo pipefail
+# shellcheck source=lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 INPUT="$(cat)"
-
-if command -v jq >/dev/null 2>&1; then
-  FILE="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // .tool_input.path // empty' 2>/dev/null)"
-else
-  FILE="$(printf '%s' "$INPUT" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' \
-    | head -1 | sed 's/.*:[[:space:]]*"//; s/"$//')"
-fi
+FILE="$(json_get "$INPUT" '.tool_input.file_path // .tool_input.path' 'file_path')"
 [[ -z "$FILE" ]] && exit 0
+REL="${FILE#"$AIP_ROOT"/}"
 
-REL="${FILE#"$ROOT"/}"
+LOOP="$(aip_loop)"
+case "$LOOP" in
+  B) MODE="$(cfg architect_owned.loop_b_mode block)" ;;
+  *) MODE="$(cfg architect_owned.loop_a_mode warn)" ;;
+esac
 
-# ------------------------------------------------------- 1. governance guard
-deny() {
-  printf 'BLOCKED: %s is architect-owned (see .claude/OPERATING_LOOPS.md, write-rights table).\n' "$REL" >&2
-  printf 'Write a draft instead: architecture/adr/drafts/ · knowledge/drafts/ · quality/technical-debt/drafts/\n' >&2
-  printf 'Drift between code and the model is REPORTED, never erased by editing the model.\n' >&2
+# Drafts are always writable — that is the whole point of the draft path.
+if aip_match_cfg "$REL" architect_owned.draft_paths; then
+  exit 0
+fi
+
+# Auto-extracted facts: never hand-editable in any loop. Re-run the extraction.
+if aip_match_cfg "$REL" architect_owned.generated_paths; then
+  printf 'BLOCKED: %s holds auto-extracted FACTS and is never hand-edited.\n' "$REL" >&2
+  printf 'Re-run the extraction (jqassistant-mcp.runScan) instead.\n' >&2
   exit 2
-}
+fi
 
-case "$REL" in
-  architecture/adr/drafts/*|knowledge/drafts/*|quality/technical-debt/drafts/*)
-    : ;;                                        # drafts are always allowed
-  architecture/adr/ADR-*.md)              deny ;;
-  architecture/constraints/*)             deny ;;
-  architecture/standards/*)               deny ;;
-  architecture/c4/workspace.dsl)          deny ;;
-  architecture/target-architecture/*)     deny ;;
-  domain/model/*)                         deny ;;
-  domain/constraints/*)                   deny ;;
-  delivery/roadmap/*)                     deny ;;
-  domain/raw/*)
-    printf 'BLOCKED: domain/raw/ holds auto-extracted FACTS and is never hand-edited.\n' >&2
-    printf 'Re-run the extraction (jqassistant-mcp.runScan) instead.\n' >&2
-    exit 2 ;;
-esac
+if aip_match_cfg "$REL" architect_owned.paths; then
+  MSG=$(cat <<TXT
+$REL is architect-owned (.claude/OPERATING_LOOPS.md, write-rights table).
+Emit a draft instead: architecture/adr/drafts/ · knowledge/drafts/ · quality/technical-debt/drafts/
+Drift between code and the model is REPORTED, never erased by editing the model.
+TXT
+)
+  case "$MODE" in
+    block)
+      printf 'BLOCKED (loop %s): %s\n' "$LOOP" "$MSG" >&2
+      printf 'Config: architect_owned.loop_%s_mode in .claude/aip.config.yml\n' "$(printf '%s' "$LOOP" | tr 'AB' 'ab')" >&2
+      exit 2 ;;
+    warn)
+      # Loop A: the architect is allowed to do this. Say it once, do not block.
+      printf 'NOTE (loop %s): editing an architect-owned artifact — %s\n' "$LOOP" "$REL"
+      printf 'If this is an approval, record it in project-memory/ so the reason survives.\n'
+      exit 0 ;;
+    *) exit 0 ;;
+  esac
+fi
 
-# ------------------------------------------------------- 2. drift bookkeeping
-case "$FILE" in
-  *.java|*.kt|*.kts|*.go|*.py|*.ts|*.tsx|*.js|*.cs|*.rb|*.rs|*.sql|*.proto|*.yaml|*.yml)
-    case "$REL" in
-      */test/*|*/tests/*|*.test.*|*.spec.*) exit 0 ;;   # tests do not move the model
-      .claude/*|reports/*|specs/*)          exit 0 ;;
-    esac
-    mkdir -p "$ROOT/.claude"
-    printf '%s  %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$REL" >> "$ROOT/.claude/.drift-pending"
-    # keep the flag file bounded
-    tail -n 200 "$ROOT/.claude/.drift-pending" > "$ROOT/.claude/.drift-pending.tmp" 2>/dev/null \
-      && mv "$ROOT/.claude/.drift-pending.tmp" "$ROOT/.claude/.drift-pending"
-    ;;
-esac
+# ------------------------------------------------------------ drift bookkeeping
+EXT="${FILE##*.}"
+aip_match_cfg "$EXT" drift.code_extensions || exit 0
+aip_match_cfg "$REL" drift.ignore_globs && exit 0
 
+FLAG="$AIP_ROOT/$(cfg drift.flag_file .claude/.drift-pending)"
+mkdir -p "$(dirname "$FLAG")" 2>/dev/null
+printf '%s  %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$REL" >> "$FLAG"
+MAX="$(cfg drift.max_entries 200)"
+tail -n "$MAX" "$FLAG" > "$FLAG.tmp" 2>/dev/null && mv "$FLAG.tmp" "$FLAG"
 exit 0

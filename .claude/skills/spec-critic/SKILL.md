@@ -105,6 +105,11 @@ Required human decision: ...
 ### T1 — ...
 
 ## Human Decisions Required
+Each of these is ALSO appended to `specs/<feature>/decisions.md` as an `OPEN`
+row — that ledger is what the human answers, what the gate counts, and what
+`decision-capture` reads afterwards. Listing a question only here means it gets
+answered in a chat window and lost.
+
 1. ...
 2. ...
 
@@ -128,3 +133,8 @@ Required human decision: ...
   with what confidence — silence is not evidence of quality.
 - If `impact.md` is missing or its confidence is LOW, say so in the header and
   cap the critique's confidence accordingly.
+- Append to `decisions.md`; never fill its `Answer` / `Answered by` / `Status`
+  columns. You raise questions; humans close them.
+- `READY` is a recommendation, not an approval. The real approval is a human on
+  the PR (CODEOWNERS); every gate evaluation is recorded in `gate-log.md` so a
+  reviewer can see whether a status was earned or asserted.

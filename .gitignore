@@ -76,3 +76,8 @@ store/
 *.swp
 .DS_Store
 Thumbs.db
+
+# harness runtime state (local, never committed)
+.claude/.drift-pending
+.claude/.drift-pending.tmp
+reports/drift/.scanned
