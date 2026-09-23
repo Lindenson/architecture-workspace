@@ -31,6 +31,7 @@
 ## Table of contents
 
 - [The problem this solves](#-the-problem-this-solves)
+- [Two loops](#-two-loops-the-core-idea)
 - [How it works](#-how-it-works)
 - [Source-of-truth hierarchy](#-source-of-truth-hierarchy)
 - [Knowledge hierarchy](#-knowledge-hierarchy-the-four-levels-of-truth)
@@ -39,6 +40,7 @@
 - [MCP servers](#-mcp-servers)
 - [Talking to the agent](#-talking-to-the-agent-runtime-commands)
 - [Skills & subagents](#-skills--subagents)
+- [Using it in a product repository](#-using-it-in-a-product-repository)
 - [Verified](#-verified)
 - [Governance documents](#-governance-documents)
 - [Roadmap](#-roadmap)
@@ -73,6 +75,83 @@ SHOW PROJECT STATE
 …and get a consolidated picture of architecture, quality, technical debt,
 delivery, Jira, ADR compliance, risks, and recommendations — **without manually
 checking each tool.**
+
+---
+
+## 🔁 Two loops — the core idea
+
+AI-assisted delivery fails in a specific way: the agent that implements a feature
+also decides whether the architecture is still sound. It always concludes that it
+is. AIP separates those jobs into two loops that **never write into each other**.
+
+```
+   ╔═══════════════════════════════╗        ╔═══════════════════════════════╗
+   ║  LOOP A                       ║        ║  LOOP B                       ║
+   ║  ARCHITECTURE MAINTENANCE     ║        ║  SPEC IMPLEMENTATION          ║
+   ║                               ║        ║                               ║
+   ║  scan → facts → model →       ║        ║  intent → spec → critique →   ║
+   ║  drift → report               ║        ║  plan → tasks → code → PR     ║
+   ║                               ║        ║                               ║
+   ║  read-only over product code  ║        ║  writes product code          ║
+   ║  lives HERE                   ║        ║  lives in the PRODUCT repo    ║
+   ║  cadence: nightly             ║        ║  cadence: per feature         ║
+   ╚═══════════════╤═══════════════╝        ╚═══════════════╤═══════════════╝
+                   │                                        │
+                   │  J1  impact.md ──────────────────────▶ │   what does this
+                   │      blast radius · contexts ·         │   feature actually
+                   │      binding ADRs · existing debt      │   touch?
+                   │                                        │
+                   │  J2  critique.md ────────────────────▶ │   adversarial gate;
+                   │      BLOCKED gate before implement     │   hook-enforced
+                   │                                        │
+                   │ ◀──────────────── drift report  J3     │   after converge
+                   │ ◀──────────────── memory entry  J3     │
+                   │                                        │
+                   │  J4  retrieved memory ───────────────▶ │   next session
+                   │      (pgvector, SessionStart hook)     │   starts informed
+```
+
+**The invariant**
+
+```
+Loop A owns FACTS and the MODEL.   Loop B owns CODE.
+They exchange four named artifacts. A human owns every gate.
+```
+
+Corollary: **one loop per session.** The agent that implements a feature is not
+the agent that certifies the architecture afterwards.
+
+### Where the human actually stands
+
+`specs/<feature>/decisions.md` is the **decision ledger**: `impact.md` and
+`critique.md` append `OPEN` rows (question · who raised it · real options); a
+human fills in the answer. Agents may raise rows and may never answer them. The
+gate counts open rows, CI fails a PR that still carries one, and
+`decision-capture` reads the answered rows instead of guessing intent from a
+diff. Without it, "HUMAN GATE" is an arrow on a diagram.
+
+### Locks and logs — stated plainly
+
+Local hooks read files that an agent writes, so they are **fast feedback and an
+audit trail, not a lock**. Every evaluation lands in `gate-log.md`, which travels
+into the PR.
+
+| Mechanism | What it is |
+|---|---|
+| `.github/CODEOWNERS` + branch protection | **lock** — outside the working tree |
+| CI `human-gate` (no `OPEN` decision rows) | **lock** — on the merge path |
+| `guard-speckit-phase.sh` · `mark-drift-pending.sh` | log + fast feedback, overridable by design |
+| `gate-log.md` · `decisions.md` · `project-memory/` | evidence, and the input to `automation/harness-metrics.sh` |
+
+Everything is tunable in [`.claude/aip.config.yml`](.claude/aip.config.yml) —
+gate `block` / `warn` / `off`, which phases are gated, which paths are
+architect-owned per loop, retrieval mode, blast-radius depth. Start a team on
+`warn`, read the gate log for two weeks, then switch to `block`. A gate that is
+wrong once and cannot be overridden gets deleted along with the cases where it
+was right; `AIP_GATE_OVERRIDE="<reason>"` always works and is always logged.
+
+Full contract: [`.claude/OPERATING_LOOPS.md`](.claude/OPERATING_LOOPS.md).
+Verify the harness on your machine: `./automation/verify-hooks.sh` (26 checks).
 
 ---
 
@@ -147,9 +226,14 @@ decisions were made (and rejected).
 ```
 architecture-workspace/
 ├── .claude/              Agent governance contract
+│   ├── OPERATING_LOOPS.md  ★ the two-loop contract and its four join points
+│   ├── aip.config.yml      ★ the one place the harness is tuned
 │   ├── *.md                ROLE, OPERATING_MODEL, AGENT_RUNTIME, MCP_ORCHESTRATION_MAP …
 │   ├── agents/             7 subagents (architecture, debt, delivery, …)
-│   └── skills/             16 skills (architecture-review, release-readiness, …)
+│   ├── hooks/              ★ phase gate · governance guard · drift flag · memory digest
+│   └── skills/             22 skills (session-orientation, spec-critic, …)
+├── .claude-plugin/       ★ plugin + marketplace manifests (install into product repos)
+├── integration/          ★ how to wire this into a product repo (Spec Kit, hooks, CI)
 ├── knowledge/            L0-ish Project knowledge (vision, domain, glossary, stakeholders)
 ├── architecture/         L2 ADR, constraints, standards, C4 (Structurizr DSL), target arch
 ├── delivery/             L3 roadmap, epics, releases, metrics (Jira sync)
@@ -159,7 +243,8 @@ architecture-workspace/
 ├── reports/              Generated daily/weekly/release/architecture reports
 ├── rag/                  RAG layer (sources → chunks → embeddings → index) — MVP-3
 ├── project-memory/       Decision journal (why, including rejected options)
-├── automation/           Nightly pipeline & scan scripts
+├── automation/           Nightly pipeline, scan scripts, harness self-test & metrics
+├── specs/                Loop B artifacts (spec · impact · decisions · critique · gate-log)
 ├── config/              Credential templates (real files gitignored)
 ├── jqassistant/          Scan rules & reports — MVP-2
 ├── mcp-servers/          Java Spring Boot MCP servers (Maven reactor)
@@ -174,6 +259,7 @@ architecture-workspace/
 │   └── digital-twin-core/  Orchestrator → DIGITAL_TWIN_MODEL
 ├── architecture-tests/   ArchUnit enforcement module (template for product repos)
 ├── db/                   pgvector schema (db/init.sql)
+├── .github/workflows/    ★ Architecture Gate CI (ArchUnit · C4 validity · contract integrity)
 ├── .mcp.json             MCP wiring (all servers; secrets via ${ENV})
 ├── .env.example          Credential template (copy to .env)
 └── docker-compose.yml    Postgres+pgvector, Neo4j, MCP servers
@@ -252,7 +338,7 @@ Secrets come from `.env` / `config/*.config.yml` (gitignored). See
 | `jqassistant-mcp`  | 8085 | ✅ MVP-2    | Neo4j (jQAssistant) | `ARCHITECTURE_GRAPH`   |
 | `rag-mcp`          | 8088 | ✅ MVP-3 *(optional)* | Postgres + pgvector | `CONTEXT_PACKS`     |
 | `wiki-mcp`         | 8086 | ✅ MVP-3 *(optional)* | Confluence / Wiki   | `KNOWLEDGE_DOCUMENTS` |
-| `openspec-mcp`     | 8087 | 🔜 MVP-4    | OpenSpec repo       | `DESIGN_CONTRACTS`     |
+| ~~`openspec-mcp`~~ | 8087 | ⛔ dropped  | —                   | superseded by Spec Kit artifacts read from the product repo (see [integration](#-using-it-in-a-product-repository)) |
 
 ---
 
@@ -279,7 +365,15 @@ Or invoke a **skill** directly (e.g. `/architecture-review`, `/release-readiness
 
 ## 🧩 Skills & subagents
 
-**16 skills** (`.claude/skills/`) — business scenarios the agent runs:
+**6 loop skills** — the spine of the two-loop model:
+`session-orientation` (which loop am I in) ·
+`feature-impact-analysis` (J1 — spec → graph blast radius → binding ADRs → debt) ·
+`spec-critic` (J2 — adversarial review, `BLOCKED`/`NEEDS_DECISION`/`READY`) ·
+`decision-capture` (J3 — decisions, including rejected options, into memory) ·
+`tech-debt-delta` (J3 — what debt this feature closed, created or deferred) ·
+`knowledge-reindex` (J4 — make the new decisions retrievable next session).
+
+**16 analysis skills** (`.claude/skills/`) — Loop A business scenarios:
 `architecture-review` · `adr-review` · `architecture-drift-analysis` ·
 `tech-debt-review` · `release-readiness-review` · `jira-epic-analysis` ·
 `release-notes-generation` · `readme-generation` ·
@@ -309,6 +403,51 @@ The agent contract lives in `.claude/`:
 
 ---
 
+## 🔗 Using it in a product repository
+
+This workspace holds no product code, so Loop B runs elsewhere. Three steps:
+
+```bash
+# 1. make the contract available where the code is
+/plugin marketplace add Lindenson/architecture-workspace
+/plugin install architecture-intelligence@aip-marketplace     # in the product repo
+
+# 2. spec-driven development in that repo
+uvx --from git+https://github.com/github/spec-kit.git specify init --here
+/speckit-constitution   # derived from architecture/constraints/ + standards/
+
+# 3. wire the feedback loop (J3)
+cp integration/specify/extensions.yml <product-repo>/.specify/extensions.yml
+```
+
+The feature cycle then looks like this — every `══ HUMAN ══` is a hook-enforced
+stop, not a convention:
+
+```
+/speckit-specify → /feature-impact-analysis → /speckit-clarify
+new session:  /spec-critic                       ══ HUMAN ══
+new session:  /speckit-plan → checklist → tasks → analyze    ══ HUMAN ══
+new session:  /speckit-implement ⇄ /speckit-converge
+              after_converge → drift check + decision-capture  → back into Loop A
+              PR → independent review           ══ HUMAN ══ → merge
+```
+
+Plus the decision ledger, which is what makes the human gates real:
+
+```bash
+cp integration/specify/decisions.template.md <product-repo>/specs/<feature>/decisions.md
+```
+
+And the lock, without which the rest is advisory: copy
+[`.github/CODEOWNERS`](.github/CODEOWNERS) and enable *Require review from Code
+Owners* in branch protection.
+
+Details, including the CI gate, how to verify the hook schema against your own
+Claude Code build, and what *not* to copy between repos:
+[`integration/README.md`](integration/README.md).
+
+---
+
 ## ✅ Verified
 
 Every shipped MVP was built and exercised, not just written:
@@ -325,6 +464,13 @@ Every shipped MVP was built and exercised, not just written:
 - **RAG (MVP-3):** against Postgres+pgvector with **local ONNX embeddings**,
   reindexed **41 files → 84 chunks** and returned ranked, cited vector-search hits;
   with the layer off, the knowledge slice reports `DISABLED`.
+- **Harness (MVP-4):** `./automation/verify-hooks.sh` runs **26 assertions**
+  against the real hook scripts — phase ordering, the decisions gate, override
+  logging, `block`/`warn`/`off` modes, loop-aware governance guard, drift
+  bookkeeping and reset, and the session digest. Green in CI.
+- **Retrieval honesty:** the session digest states which mode produced it —
+  `semantic retrieval (rag-mcp)` or `DEGRADED to newest-first`. It never presents
+  a filename sort as semantic search.
 
 ---
 
@@ -358,9 +504,27 @@ Every shipped MVP was built and exercised, not just written:
   confidence. Enable per-project with `KNOWLEDGE_ENABLED=true` +
   `docker compose --profile knowledge up -d`.
 
-### 🔜 MVP-4 — Event-driven twin
+### ✅ Done — MVP-4 (the delivery loop)
+- **Two-loop operating contract** (`.claude/OPERATING_LOOPS.md`) with four named
+  join points; `session-orientation` routes every session into exactly one loop
+- **Spec Kit integration** — `integration/specify/extensions.yml` wires
+  `hooks.after_converge` back into the architecture loop; the workspace no longer
+  needs a bespoke `openspec-mcp` to close the circle
+- `feature-impact-analysis` — Cypher blast radius over the jQAssistant graph,
+  mapped onto bounded contexts, binding ADRs and the debt register
+- `spec-critic` — adversarial pre-implementation review with `BLOCKED` gating
+- `decision-capture` — convergence → `project-memory/` + ADR draft + debt delta
+- **Mechanical enforcement** — SessionStart memory digest, phase-order gate,
+  governance-write guard, drift bookkeeping
+- **Plugin packaging** — install the whole contract into any product repo
+- **Architecture Gate CI** — ArchUnit, C4 validity, contract integrity,
+  no-secrets, and a README-vs-tree drift check on this repo itself
+
+### 🔜 MVP-5 — Event-driven twin
 - Event bridge: `Git push → scan → jQAssistant → Sonar → Structurizr → RAG reindex → report → Jira update`
-- `openspec-mcp`, full automation, scheduled nightly digital-twin refresh
+- Incremental rescan of only the blast radius instead of the full graph
+- Traceability store: `REQ-ID → task → commit → component → ADR → test`, generated
+  into Postgres rather than maintained by hand
 
 ---
 

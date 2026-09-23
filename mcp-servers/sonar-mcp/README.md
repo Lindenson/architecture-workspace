@@ -5,7 +5,7 @@ gate, technical debt, code smells, security, coverage) to the AIP digital-twin
 orchestrator over the Spring AI MCP protocol, with a REST mirror under
 `/api/sonar`.
 
-Part of the `eu.transplat.aip:mcp-servers` reactor. Returns the canonical
+Part of the `com.wolper.aip:mcp-servers` reactor. Returns the canonical
 `McpResponse` (`data` / `status` / `source` / `confidence`) on every call, with
 `source = "sonar-mcp:SonarQube Web API"`.
 

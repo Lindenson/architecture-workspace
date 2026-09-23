@@ -7,7 +7,7 @@ It fans out to the other AIP MCP servers over plain HTTP REST (their
 **DIGITAL_TWIN_MODEL**, and exposes high-level analysis commands as MCP tools
 (also mirrored as REST endpoints under `/api/twin`).
 
-Every tool/endpoint returns the canonical `eu.transplat.aip.mcp.common.McpResponse`
+Every tool/endpoint returns the canonical `com.wolper.aip.mcp.common.McpResponse`
 (`data` / `status` / `source` / `confidence` / `message` / `producedAt`) with
 `source = "digital-twin-core"`.
 

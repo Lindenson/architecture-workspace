@@ -2,9 +2,9 @@
 
 Spring Boot **MCP server** that exposes Git hosting data (GitHub REST v3 or
 GitLab API v4) to the AIP **digital twin**. Part of the `mcp-servers` Maven
-reactor under `eu.transplat.aip`.
+reactor under `com.wolper.aip`.
 
-Every tool and endpoint returns the canonical `eu.transplat.aip.mcp.common.McpResponse`
+Every tool and endpoint returns the canonical `com.wolper.aip.mcp.common.McpResponse`
 (`data`, `status`, `source`, `confidence`, `message`, `producedAt`). The server
 is resilient: tool methods never throw — upstream failures become `error` /
 `stale` responses, and the server starts with placeholder credentials.

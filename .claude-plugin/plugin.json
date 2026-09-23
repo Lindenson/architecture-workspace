@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin.json",
+  "name": "architecture-intelligence",
+  "version": "2.0.0",
+  "description": "Architecture Intelligence Platform: a living digital twin of the system plus the two-loop operating contract that keeps architecture current while features are implemented against specifications. Ships the loop router, graph-backed impact analysis, the spec critic, the human decision ledger, decision capture, debt accounting, and configurable phase-order hooks.",
+  "author": {
+    "name": "Denis Lindenson",
+    "url": "https://github.com/Lindenson/architecture-workspace"
+  },
+  "homepage": "https://github.com/Lindenson/architecture-workspace",
+  "license": "Apache-2.0",
+  "keywords": [
+    "architecture",
+    "spec-driven-development",
+    "digital-twin",
+    "jqassistant",
+    "structurizr",
+    "adr",
+    "technical-debt",
+    "c4"
+  ],
+  "skills": "./.claude/skills",
+  "agents": "./.claude/agents",
+  "hooks": "./.claude/hooks/hooks.json",
+  "mcpServers": "./.mcp.json"
+}

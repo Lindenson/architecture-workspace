@@ -2,9 +2,9 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
-      "Read(//home/wolper/IdeaProjects/architecture-workspace/**)",
-      "Edit(//home/wolper/IdeaProjects/architecture-workspace/**)",
-      "Write(//home/wolper/IdeaProjects/architecture-workspace/**)",
+      "Read($CLAUDE_PROJECT_DIR/**)",
+      "Edit($CLAUDE_PROJECT_DIR/**)",
+      "Write($CLAUDE_PROJECT_DIR/**)",
       "Bash(mvn:*)",
       "Bash(./mvnw:*)",
       "Bash(java:*)",
@@ -17,13 +17,14 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(jqassistant:*)",
-      "Bash(./automation/*)"
+      "Bash($CLAUDE_PROJECT_DIR/automation/*)"
     ],
     "deny": [
-      "Read(//home/wolper/IdeaProjects/architecture-workspace/.env)",
-      "Read(//home/wolper/IdeaProjects/architecture-workspace/config/*.config.yml)",
-      "Read(//home/wolper/IdeaProjects/architecture-workspace/**/*.token)",
-      "Read(//home/wolper/IdeaProjects/architecture-workspace/**/secrets/**)"
+      "Read($CLAUDE_PROJECT_DIR/.env)",
+      "Read($CLAUDE_PROJECT_DIR/config/*.config.yml)",
+      "Read($CLAUDE_PROJECT_DIR/**/*.token)",
+      "Read($CLAUDE_PROJECT_DIR/**/secrets/**)",
+      "Write($CLAUDE_PROJECT_DIR/domain/raw/**)"
     ]
   },
   "enableAllProjectMcpServers": false,
@@ -34,5 +35,53 @@
     "sonar-mcp",
     "jqassistant-mcp",
     "structurizr-mcp"
-  ]
+  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/guard-speckit-phase.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/mark-drift-pending.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/stop-decision-reminder.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
 }

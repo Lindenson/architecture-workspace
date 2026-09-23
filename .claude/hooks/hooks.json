@@ -1,0 +1,35 @@
+{
+  "description": "Hooks shipped by the architecture-intelligence plugin. ${CLAUDE_PLUGIN_ROOT} resolves to the installed plugin directory, so these work in any product repository that installs the plugin.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/.claude/hooks/session-start.sh", "timeout": 15 }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/.claude/hooks/guard-speckit-phase.sh", "timeout": 10 }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/.claude/hooks/mark-drift-pending.sh", "timeout": 10 }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/.claude/hooks/stop-decision-reminder.sh", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}

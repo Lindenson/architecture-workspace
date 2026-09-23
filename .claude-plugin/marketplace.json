@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "aip-marketplace",
+  "owner": {
+    "name": "Denis Lindenson",
+    "url": "https://github.com/Lindenson"
+  },
+  "metadata": {
+    "description": "Architecture Intelligence Platform \u2014 architect-grade governance for AI-assisted delivery.",
+    "version": "2.0.0"
+  },
+  "plugins": [
+    {
+      "name": "architecture-intelligence",
+      "source": "./",
+      "description": "Two-loop operating contract, digital twin MCP servers, graph-backed impact analysis, spec critic, human decision ledger and configurable governance hooks."
+    }
+  ]
+}

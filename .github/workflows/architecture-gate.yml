@@ -1,0 +1,245 @@
+name: Architecture Gate
+
+# Turns written invariants into checks. Without this, every rule in
+# architecture/constraints/ is a wish.
+#
+# IMPORTANT — where the real gate lives: local hooks are an AUDIT TRAIL (they
+# read files an agent can write). The enforcement that an agent cannot write its
+# way past is CODEOWNERS + branch protection. See .github/CODEOWNERS.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  # Pinned deliberately: :latest silently changes the gate.
+  # NOTE: structurizr/cli was ARCHIVED upstream on 2026-02-04 and is read-only;
+  # v2025.11.09 is its final release. The image still validates DSL correctly,
+  # but it will not receive fixes. Revisit when you next touch workspace.dsl —
+  # DSL validation has moved into the main structurizr/structurizr tooling.
+  # Docker Hub tags have NO "v" prefix, unlike the GitHub release tags
+  # (release v2025.11.09 -> image structurizr/cli:2025.11.09). Using the release
+  # tag verbatim gives "manifest unknown" and a 5-second failure.
+  STRUCTURIZR_CLI_VERSION: "2025.11.09"
+
+jobs:
+  build:
+    name: Build MCP reactor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { java-version: '21', distribution: 'temurin', cache: maven }
+      - run: mvn -B -ntp verify
+        working-directory: mcp-servers
+
+  archunit:
+    # HONEST NAMING: architecture-tests/ is a TEMPLATE for product repositories.
+    # It has no dependency on any product code, so ClassFileImporter finds zero
+    # classes and every rule in it is @Disabled. This job proves the template
+    # still compiles — it does NOT enforce architecture here, and calling it a
+    # gate would be exactly the self-deception this repo exists to prevent.
+    name: ArchUnit template compiles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { java-version: '21', distribution: 'temurin', cache: maven }
+      - run: mvn -B -ntp test
+        working-directory: architecture-tests
+      - name: Say plainly what this did and did not check
+        run: |
+          echo "::notice::architecture-tests is a template: rules are @Disabled and import no product code."
+          echo "::notice::To make it a real gate, copy it into a product repo, add that product as a"
+          echo "::notice::dependency, set -Darchunit.base.package=<root> and remove the @Disabled annotations."
+
+  layer-naming:
+    name: Persistence layer has one name
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every module names the persistence layer 'repository'
+        run: |
+          set -euo pipefail
+          # The layering rule matches package globs. Three names for one layer
+          # (repository / store / persistence) meant the rule matched nothing and
+          # passed vacuously. One name, checked by the machine.
+          bad=$(find mcp-servers -type d \( -name store -o -name persistence -o -name dao \) \
+                  -path '*/src/main/java/*' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::persistence packages must be named 'repository':"
+            echo "$bad" | sed 's/^/  /'
+            exit 1
+          fi
+          echo "persistence layer is consistently named 'repository'"
+
+  structurizr:
+    name: C4 model validity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate workspace.dsl
+        run: |
+          set -euo pipefail
+          # If this tag ever disappears, fail loudly rather than falling back to
+          # :latest — an unpinned validator is not a gate.
+          docker run --rm -v "$PWD/architecture/c4:/usr/local/structurizr" \
+            "structurizr/cli:${STRUCTURIZR_CLI_VERSION}" validate -workspace workspace.dsl
+
+  harness:
+    name: Harness self-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Hooks behave as designed
+        run: ./automation/verify-hooks.sh
+      - name: Hooks are executable and parse
+        run: |
+          set -euo pipefail
+          fail=0
+          for h in .claude/hooks/*.sh automation/*.sh; do
+            [ -x "$h" ] || { echo "::error::$h is not executable"; fail=1; }
+            bash -n "$h" || { echo "::error::$h has a syntax error"; fail=1; }
+          done
+          exit $fail
+      - name: Config parses and hooks agree with it
+        run: |
+          set -euo pipefail
+          source .claude/hooks/lib.sh
+          for key in gate.mode gate.phases architect_owned.loop_a_mode \
+                     architect_owned.loop_b_mode memory.retrieval impact.max_depth; do
+            v="$(cfg "$key" '')"
+            [ -n "$v" ] || { echo "::error::aip.config.yml: $key does not parse"; exit 1; }
+            echo "  $key = $v"
+          done
+
+  contract-integrity:
+    name: Governance contract integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Required artifacts present
+        run: |
+          set -euo pipefail
+          fail=0
+          for f in CLAUDE.md .claude/OPERATING_LOOPS.md .claude/aip.config.yml \
+                   .claude/ROLE_ARCHITECT_AGENT.md .claude/OPERATING_MODEL.md \
+                   .claude/AGENT_RUNTIME.md .claude-plugin/plugin.json .mcp.json \
+                   .github/CODEOWNERS integration/specify/extensions.yml \
+                   integration/specify/decisions.template.md; do
+            [ -f "$f" ] || { echo "::error::missing $f"; fail=1; }
+          done
+          exit $fail
+
+      - name: Every skill and agent has usable frontmatter
+        run: |
+          set -euo pipefail
+          fail=0
+          for s in .claude/skills/*/SKILL.md .claude/agents/*.md; do
+            head -1 "$s" | grep -q '^---$' || { echo "::error::$s: no frontmatter"; fail=1; continue; }
+            grep -q '^name:'        "$s" || { echo "::error::$s: no name"; fail=1; }
+            grep -q '^description:' "$s" || { echo "::error::$s: no description"; fail=1; }
+            # A skill only fires if its description is specific enough to route on.
+            len=$(grep -m1 '^description:' "$s" | wc -c)
+            [ "$len" -lt 60 ] && { echo "::error::$s: description too short to route on ($len chars)"; fail=1; }
+          done
+          exit $fail
+
+      - name: No empty skill directories
+        run: |
+          set -euo pipefail
+          fail=0
+          for d in .claude/skills/*/; do
+            [ -f "$d/SKILL.md" ] || { echo "::error::$d has no SKILL.md"; fail=1; }
+          done
+          exit $fail
+
+      - name: Skills referenced by extensions.yml exist
+        run: |
+          set -euo pipefail
+          fail=0
+          grep -oE '^[[:space:]]*-[[:space:]]*name:[[:space:]]*[a-z0-9-]+' integration/specify/extensions.yml \
+            | awk '{print $NF}' | while read -r skill; do
+              [ -d ".claude/skills/$skill" ] || { echo "::error::extensions.yml references missing skill: $skill"; exit 1; }
+            done
+
+      - name: No source file is hidden by .gitignore
+        run: |
+          set -euo pipefail
+          # An unanchored .gitignore rule once swallowed an entire Java package
+          # (`store/` matched .../rag/store/), so main did not compile and
+          # nobody noticed, because the build worked on the author's machine.
+          hidden=$(git ls-files --others --ignored --exclude-standard \
+                   | grep -E '\.(java|kt|go|ts|py)$' || true)
+          if [ -n "$hidden" ]; then
+            echo "::error::these source files exist on disk but are ignored by git:"
+            echo "$hidden" | sed 's/^/  /'
+            echo "Anchor the offending .gitignore rule with a leading slash."
+            exit 1
+          fi
+
+      - name: No secrets committed
+        run: |
+          set -euo pipefail
+          if git ls-files | grep -Ev '\.example$' | grep -E '(^|/)(\.env|.*\.config\.yml|.*\.token)$' \
+             | grep -v '^\.claude/aip\.config\.yml$'; then
+            echo "::error::a real credential file is tracked in git"; exit 1
+          fi
+
+      - name: README directory claims match the tree
+        run: |
+          set -euo pipefail
+          # Derived from the README layout block, not a hardcoded list — a
+          # hardcoded list is itself a thing that drifts.
+          # TOP-LEVEL entries only: lines whose tree glyph starts at column 0.
+          # Nested lines look like "│   ├── agents/", where awk '{print $2}'
+          # returns the glyph rather than the name — and a nested directory is
+          # not a repo-root path anyway.
+          sed -n '/^architecture-workspace\/$/,/^```$/p' README.md \
+            | grep -oE '^(├──|└──) [a-z.][a-zA-Z0-9._-]*/' \
+            | sed -E 's/^(├──|└──) //; s#/$##' | sort -u > /tmp/readme-dirs.txt
+          if [ ! -s /tmp/readme-dirs.txt ]; then
+            echo "::error::parsed zero directories from the README layout block — the parser or the block changed"
+            exit 1
+          fi
+          fail=0
+          while read -r d; do
+            [ -e "$d" ] || { echo "::error::README advertises $d/ but it does not exist"; fail=1; }
+          done < /tmp/readme-dirs.txt
+          exit $fail
+
+  human-gate:
+    name: Human gate — no unanswered decisions
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: No OPEN rows in any decisions.md
+        run: |
+          set -euo pipefail
+          found=0
+          while IFS= read -r f; do
+            if grep -qE '\|[[:space:]]*OPEN[[:space:]]*\|' "$f"; then
+              echo "::error file=$f::unanswered human decision(s) reaching a merge"
+              grep -nE '\|[[:space:]]*OPEN[[:space:]]*\|' "$f" | head -5
+              found=1
+            fi
+          done < <(find specs -name decisions.md 2>/dev/null)
+          exit $found
+      - name: Surface gate overrides for the reviewer
+        run: |
+          set -euo pipefail
+          while IFS= read -r f; do
+            if grep -q '| OVERRIDE |' "$f"; then
+              echo "::warning file=$f::this feature overrode a phase gate — review the reason"
+              grep '| OVERRIDE |' "$f"
+            fi
+          done < <(find specs -name gate-log.md 2>/dev/null)

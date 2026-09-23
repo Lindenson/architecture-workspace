@@ -44,7 +44,7 @@ target/
 *.jar
 !**/.mvn/wrapper/maven-wrapper.jar
 build/
-out/
+/out/
 .gradle/
 
 # ============================================================================
@@ -65,7 +65,14 @@ domain/raw/jqa-graph/*
 
 # Neo4j store dump from jQAssistant
 *.db
-store/
+# ANCHORED to the repo root on purpose. An unanchored `store/` matches ANY
+# directory of that name at ANY depth — including Java source packages. That is
+# not hypothetical: it silently swallowed
+# mcp-servers/rag-mcp/src/main/java/eu/transplat/aip/rag/store/, so rag-mcp's
+# VectorStore was never committed and main did not compile.
+/store/
+/jqassistant/store/
+/neo4j/store/
 
 # ============================================================================
 #  IDE / OS
@@ -76,3 +83,8 @@ store/
 *.swp
 .DS_Store
 Thumbs.db
+
+# harness runtime state (local, never committed)
+.claude/.drift-pending
+.claude/.drift-pending.tmp
+reports/drift/.scanned

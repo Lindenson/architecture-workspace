@@ -5,7 +5,7 @@
 - **ID:** AV-001
 - **Source:** ArchUnit `layeredArchitecture()` rule "Controllers may not access Repositories"
 - **Violated constraint/ADR:** [layering constraint](../../architecture/constraints/layering.md) (rule 2)
-- **Location:** `eu.transplat.product.payments.api.PaymentController` → `PaymentRepository` (EXAMPLE)
+- **Location:** `com.example.product.payments.api.PaymentController` → `PaymentRepository` (EXAMPLE)
 - **Detected:** 2026-05-30, build #1234 (example)
 - **Severity:** High
 - **Status:** open (example)
