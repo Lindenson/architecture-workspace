@@ -140,6 +140,21 @@ jobs:
               [ -d ".claude/skills/$skill" ] || { echo "::error::extensions.yml references missing skill: $skill"; exit 1; }
             done
 
+      - name: No source file is hidden by .gitignore
+        run: |
+          set -euo pipefail
+          # An unanchored .gitignore rule once swallowed an entire Java package
+          # (`store/` matched .../rag/store/), so main did not compile and
+          # nobody noticed, because the build worked on the author's machine.
+          hidden=$(git ls-files --others --ignored --exclude-standard \
+                   | grep -E '\.(java|kt|go|ts|py)$' || true)
+          if [ -n "$hidden" ]; then
+            echo "::error::these source files exist on disk but are ignored by git:"
+            echo "$hidden" | sed 's/^/  /'
+            echo "Anchor the offending .gitignore rule with a leading slash."
+            exit 1
+          fi
+
       - name: No secrets committed
         run: |
           set -euo pipefail
