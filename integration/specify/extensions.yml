@@ -1,0 +1,57 @@
+# Spec Kit extension hooks — join point J3 (Loop B → Loop A).
+#
+# INSTALL: copy this file to `.specify/extensions.yml` in each PRODUCT repository
+# (not here — this workspace holds no product code).
+#
+#   cp integration/specify/extensions.yml <product-repo>/.specify/extensions.yml
+#
+# Spec Kit reads this after /speckit-converge finishes and runs the entries under
+# hooks.after_converge. This is the supported seam between the delivery loop and
+# the architecture loop: convergence means "the code now matches the spec", which
+# is exactly the moment the architecture model may have gone stale.
+#
+# Entries without an `enabled` field are enabled by default.
+
+hooks:
+  after_converge:
+
+    # 1. Did code and model diverge? Re-scan the blast radius named in impact.md,
+    #    compare against Structurizr + ADRs, write a drift report. Read-only.
+    - name: architecture-drift-analysis
+      description: >
+        Rescan the feature's blast radius (jqassistant-mcp) and compare it with
+        the C4 model and binding ADRs. Emits reports/drift/<feature>.md.
+        Escalates a boundary violation or a new dependency cycle immediately.
+      enabled: true
+
+    # 2. Capture WHY. Rejected options and accepted trade-offs die in PR threads
+    #    otherwise. Appends to project-memory/, refreshes the journal index,
+    #    emits an ADR draft when the decision is durable.
+    - name: decision-capture
+      description: >
+        Extract decisions from spec.md, impact.md, critique.md and the diff.
+        Append-only. Never writes a numbered ADR — drafts only.
+      enabled: true
+
+    # 3. Debt accounting. A feature that creates debt must say so before the PR,
+    #    not during the next quarter's audit.
+    - name: tech-debt-delta
+      description: >
+        Diff the debt register against the feature's blast radius: what was
+        closed, what was created, what was knowingly deferred.
+      enabled: true
+
+    # 4. OPTIONAL — keep the retrieval layer current so the NEXT session starts
+    #    with this feature's decisions already in context (join point J4).
+    #    Requires KNOWLEDGE_ENABLED=true and rag-mcp running.
+    - name: knowledge-reindex
+      description: rag-mcp.indexPath over project-memory/ and specs/.
+      enabled: false
+
+# ----------------------------------------------------------------------------
+# NOTE ON ORDERING
+# These run after convergence and before the PR. They are read-mostly: none of
+# them may edit product code, a numbered ADR, a constraint or the C4 model.
+# Their output is evidence for the PR description and for HUMAN GATE 3.
+#
+# See .claude/OPERATING_LOOPS.md (join point J3) for the full contract.
