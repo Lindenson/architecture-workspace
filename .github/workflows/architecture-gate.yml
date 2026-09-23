@@ -24,7 +24,10 @@ env:
   # v2025.11.09 is its final release. The image still validates DSL correctly,
   # but it will not receive fixes. Revisit when you next touch workspace.dsl —
   # DSL validation has moved into the main structurizr/structurizr tooling.
-  STRUCTURIZR_CLI_VERSION: "v2025.11.09"
+  # Docker Hub tags have NO "v" prefix, unlike the GitHub release tags
+  # (release v2025.11.09 -> image structurizr/cli:2025.11.09). Using the release
+  # tag verbatim gives "manifest unknown" and a 5-second failure.
+  STRUCTURIZR_CLI_VERSION: "2025.11.09"
 
 jobs:
   build:
@@ -196,12 +199,22 @@ jobs:
           set -euo pipefail
           # Derived from the README layout block, not a hardcoded list — a
           # hardcoded list is itself a thing that drifts.
-          fail=0
+          # TOP-LEVEL entries only: lines whose tree glyph starts at column 0.
+          # Nested lines look like "│   ├── agents/", where awk '{print $2}'
+          # returns the glyph rather than the name — and a nested directory is
+          # not a repo-root path anyway.
           sed -n '/^architecture-workspace\/$/,/^```$/p' README.md \
-            | grep -oE '^(├──|└──|│   ├──|│   └──) [a-z.][a-zA-Z0-9._-]*/' \
-            | awk '{print $2}' | sed 's#/$##' | sort -u | while read -r d; do
-                [ -e "$d" ] || { echo "::error::README advertises $d/ but it does not exist"; exit 1; }
-              done
+            | grep -oE '^(├──|└──) [a-z.][a-zA-Z0-9._-]*/' \
+            | sed -E 's/^(├──|└──) //; s#/$##' | sort -u > /tmp/readme-dirs.txt
+          if [ ! -s /tmp/readme-dirs.txt ]; then
+            echo "::error::parsed zero directories from the README layout block — the parser or the block changed"
+            exit 1
+          fi
+          fail=0
+          while read -r d; do
+            [ -e "$d" ] || { echo "::error::README advertises $d/ but it does not exist"; fail=1; }
+          done < /tmp/readme-dirs.txt
+          exit $fail
 
   human-gate:
     name: Human gate — no unanswered decisions
