@@ -13,9 +13,9 @@ linked to the decisions it governs. Part of the weekly procedure
 ## Inputs / Sources
 - ADR repository under `architecture/adr/` (status, context, decision, consequences)
 - github-mcp / GitLab MCP — code that should embody each decision
-- jqassistant-mcp (planned) — verify the decision holds in the dependency graph
+- jqassistant-mcp — verify the decision holds in the dependency graph
 - jira-mcp — decisions driven by epics/stories
-- rag-mcp (planned) — find superseded/duplicate decisions
+- rag-mcp (optional knowledge layer) — find superseded/duplicate decisions
 
 ## Procedure
 1. Enumerate ADRs; read status (Proposed/Accepted/Superseded/Deprecated).

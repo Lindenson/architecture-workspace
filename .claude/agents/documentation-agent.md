@@ -14,7 +14,7 @@ never invent it.
 
 ## Sources / MCP (runtime-discovered; trust order)
 Code (Git via github-mcp / GitLab MCP) > ADR repo > Structurizr model > wiki-mcp
-(planned) / Atlassian Confluence MCP. Use rag-mcp (planned) for related-doc
+(optional knowledge layer) / Atlassian Confluence MCP. Use rag-mcp for related-doc
 lookup. If wiki-mcp is unavailable, work from Confluence MCP or repo-local docs
 and lower confidence.
 

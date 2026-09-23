@@ -14,7 +14,7 @@ procedure and the Project Health Snapshot of `ARCHITECTURE_RESCAN`.
 - digital-twin-core: `showProjectState`, `generateReport`, `analyzeTechDebt`,
   `analyzeReleaseReadiness`
 - jira-mcp · github-mcp/GitLab MCP · sonar-mcp (live)
-- jqassistant-mcp · structurizr-mcp · wiki-mcp · rag-mcp (planned)
+- jqassistant-mcp · structurizr-mcp (live) · wiki-mcp · rag-mcp (live, optional knowledge layer)
 
 ## Procedure
 1. Gather each state domain: `ARCHITECTURE_STATE`, `QUALITY_STATE`,
@@ -22,7 +22,7 @@ procedure and the Project Health Snapshot of `ARCHITECTURE_RESCAN`.
 2. Score each domain (health + trend); note finance/document-processing hotspots
    (e.g. reconciliation reliability, ingestion throughput, PII/PCI posture).
 3. Consolidate the top risks across domains and rank them.
-4. Summarize with explicit confidence per domain (degraded where a planned MCP
+4. Summarize with explicit confidence per domain (degraded where an MCP
    is offline).
 
 ## Output (contract)

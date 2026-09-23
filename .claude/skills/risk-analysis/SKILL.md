@@ -11,7 +11,7 @@ with each risk traced to evidence. Supports `RELEASE_SESSION`,
 `DELIVERY_SESSION` (Roadmap Risk Analysis) and the monthly assessment.
 
 ## Inputs / Sources
-- jqassistant-mcp/ArchUnit (planned) — architecture violations, cycles
+- jqassistant-mcp/ArchUnit — architecture violations, cycles
 - sonar-mcp — vulnerabilities, reliability/security hotspots
 - jira-mcp — slipping epics, open critical defects, scope risk
 - github-mcp/GitLab MCP — change concentration, risky areas; ADR repo

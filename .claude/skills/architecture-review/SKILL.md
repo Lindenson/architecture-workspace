@@ -13,8 +13,8 @@ Structurizr. Backs OPERATING_MODEL `ARCHITECT_SESSION` and AGENT_RUNTIME is
 
 ## Inputs / Sources
 - digital-twin-core: `showProjectState`, `runArchitectureRescan`
-- jqassistant-mcp (planned) — dependency graph, cycles, forbidden deps
-- ArchUnit reports under `quality/` ; Structurizr model (structurizr-mcp, planned)
+- jqassistant-mcp — dependency graph, cycles, forbidden deps
+- ArchUnit reports under `quality/` ; Structurizr model (structurizr-mcp)
 - github-mcp / GitLab MCP — recent structural changes; ADR repo under `architecture/adr/`
 - sonar-mcp — architectural smells
 
@@ -44,5 +44,5 @@ Structurizr model as approved is restricted — emit drafts under
 and any breach of a PII/PCI boundary immediately.
 
 ## Graceful degradation
-If jqassistant-mcp/structurizr-mcp (planned) are unavailable, fall back to Git +
+If jqassistant-mcp/structurizr-mcp are unreachable, fall back to Git +
 ArchUnit reports + Sonar, mark `DATA_STALE`, and cap confidence at MEDIUM.

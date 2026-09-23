@@ -70,9 +70,16 @@ Critical architecture drift · ADR violation · Quality Gate failure · dependen
 cycles · high-risk architecture violations · critical security issues.
 
 ## Tools
-MCP servers wired in `.mcp.json` (jira/github/sonar/digital-twin live; others
-planned). Skills in `.claude/skills/`. Subagents in `.claude/agents/` — delegate
-heavy analysis and require each to return result + sources + confidence + recommendations.
+All eight MCP servers in `.mcp.json` ship and run: digital-twin-core, jira,
+github, sonar, structurizr, jqassistant, plus rag and wiki (the optional
+knowledge layer, off unless `KNOWLEDGE_ENABLED=true`). **Query them.** A server
+that is down answers `DATA_STALE` for its slice — that is a runtime condition to
+report, not a reason to work around the source. The dependency graph
+(jqassistant-mcp) and the C4 model (structurizr-mcp) are the most precise
+evidence this workspace has; prefer them over inference from file layout.
+
+Skills in `.claude/skills/`. Subagents in `.claude/agents/` — delegate heavy
+analysis and require each to return result + sources + confidence + recommendations.
 
 ## Engineering conventions (for the Java MCP servers in `mcp-servers/`)
 - Java 21, Spring Boot 3.4.x, Maven multi-module under `mcp-servers/pom.xml`.

@@ -5,8 +5,10 @@ description: Run precise dependency/architecture graph analysis via jQAssistant 
 
 # jQAssistant Analysis
 
-> **MVP status:** jqassistant-mcp is *planned*. Until live, fall back to ArchUnit
-> reports plus static inspection of build modules and imports over Git.
+> **Status:** jqassistant-mcp is LIVE (port 8085, Neo4j). Query the graph — it is
+> the most precise source this workspace has. If Neo4j is down the tools return
+> `DATA_STALE`; only then fall back to ArchUnit reports plus static inspection of
+> build modules and imports over Git, and cap confidence at MEDIUM.
 
 ## Purpose
 Give exact, bytecode-grounded answers on the Architecture Graph: type/package
@@ -15,7 +17,7 @@ and impact (blast radius) of a change. Produces `ARCHITECTURE_GRAPH` and
 `ARCHITECTURE_DRIFT_SIGNALS`; feeds `RUN_ARCHITECTURE_RESCAN`.
 
 ## Inputs / Sources
-- jqassistant-mcp (planned) — dependency graph / Cypher over scanned bytecode
+- jqassistant-mcp — dependency graph / Cypher over scanned bytecode
 - ArchUnit reports under `quality/` — codified rules
 - github-mcp / GitLab MCP — module/build structure for context
 

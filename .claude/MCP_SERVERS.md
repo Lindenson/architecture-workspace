@@ -15,7 +15,7 @@ ${AIP_INTERNAL_TOKEN}`.
 | jqassistant-mcp    | 8085 | **MVP-2 ✅** | Neo4j (jQAssistant graph)    | ARCHITECTURE_GRAPH        |
 | rag-mcp            | 8088 | **MVP-3 ✅ (optional)** | Postgres + pgvector  | CONTEXT_PACKS              |
 | wiki-mcp           | 8086 | **MVP-3 ✅ (optional)** | Confluence API       | KNOWLEDGE_DOCUMENTS        |
-| openspec-mcp       | 8087 | MVP-4 (planned) | OpenSpec repo            | DESIGN_CONTRACTS           |
+| ~~openspec-mcp~~   | 8087 | **dropped**  | —                            | superseded: Spec Kit artifacts are read from the product repo |
 
 > **The knowledge layer (rag-mcp + wiki-mcp) is OPTIONAL and OFF by default.**
 > The orchestrator's `digital-twin.features.knowledge.enabled` is `false` unless
@@ -25,10 +25,15 @@ ${AIP_INTERNAL_TOKEN}`.
 > `rag-mcp` embeddings are pluggable: `local` (offline ONNX, default, no key),
 > `openai` (any OpenAI-compatible endpoint), or `none` (Postgres full-text only).
 
-> Planned servers are already wired in `.mcp.json` (per spec). Until their Spring
-> Boot apps are running on the listed port, the agent will see a connection error
-> for that server only — the live MVP-1 servers are unaffected. Disable a planned
-> server in `.claude/settings.json` (`enabledMcpjsonServers`) to silence it.
+> **Every server in this table ships and runs.** There is no "planned" tier left:
+> treat each one as a real source and query it. A server that is down returns
+> `DATA_STALE` or an error for that slice only — the others are unaffected, and
+> that is a runtime condition, not a missing feature. Silence a server you do not
+> run in `.claude/settings.json` (`enabledMcpjsonServers`).
+>
+> `openspec-mcp` was dropped rather than built: Spec Kit writes its artifacts
+> (`spec.md`, `plan.md`, `tasks.md`) into the product repository, where Loop B
+> reads them directly. See `.claude/OPERATING_LOOPS.md`.
 
 ## Build
 ```bash

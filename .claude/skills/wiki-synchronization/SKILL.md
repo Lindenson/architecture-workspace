@@ -5,8 +5,10 @@ description: Reconcile the team Wiki/Confluence with code, ADRs and the digital 
 
 # Wiki Synchronization
 
-> **MVP status:** wiki-mcp is *planned*. Until live, operate via the Atlassian
-> Confluence MCP if present, else over exported/markdown docs in the repo.
+> **Status:** wiki-mcp is LIVE (port 8086) but belongs to the OPTIONAL knowledge
+> layer: it runs only with `KNOWLEDGE_ENABLED=true`. Check `getState` first — a
+> `DISABLED` answer is a valid answer, not a failure. When the layer is off, use
+> the Atlassian Confluence MCP if present, else exported/markdown docs in the repo.
 
 ## Purpose
 Keep the Knowledge Layer aligned with the source-of-truth: detect Wiki pages that
@@ -14,9 +16,9 @@ contradict code/ADRs and surface documentation gaps. Backs `KNOWLEDGE_SESSION`
 and `UPDATE_KNOWLEDGE_BASE`.
 
 ## Inputs / Sources
-- wiki-mcp (planned) / Atlassian Confluence MCP — pages, spaces, history
+- wiki-mcp (optional knowledge layer) / Atlassian Confluence MCP — pages, spaces, history
 - ADR repo + Structurizr model; github-mcp / GitLab MCP — code reality
-- rag-mcp (planned) — semantic match of pages to components
+- rag-mcp (optional knowledge layer) — semantic match of pages to components
 
 ## Procedure
 1. Enumerate relevant Wiki pages (architecture, runbooks, payment/document flows).

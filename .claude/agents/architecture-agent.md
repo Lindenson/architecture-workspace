@@ -16,7 +16,7 @@ drift. You analyze; you do not write product code.
 Code (Git via github-mcp / GitLab MCP) > jqassistant-mcp graph + ArchUnit reports
 > structurizr-mcp (C4) > SonarQube > ADR repo under `architecture/adr/`. Use
 digital-twin-core `runArchitectureRescan` / `showProjectState` where available.
-Several of these MCPs are *planned* — if one is unavailable, degrade gracefully
+All of these MCPs ship and run; any of them can still be down — degrade gracefully
 (Git + ArchUnit + ADR), mark `DATA_STALE`, and cap confidence.
 
 ## Procedure

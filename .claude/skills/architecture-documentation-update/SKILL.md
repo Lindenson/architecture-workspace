@@ -11,8 +11,8 @@ diffs. Backs AGENT_RUNTIME `UPDATE_ARCHITECTURE_MODEL` and the
 `KNOWLEDGE_SESSION` mode.
 
 ## Inputs / Sources
-- jqassistant-mcp (planned) — extracted code structure / dependency graph
-- structurizr-mcp (planned) — current C4 model DSL
+- jqassistant-mcp — extracted code structure / dependency graph
+- structurizr-mcp — current C4 model DSL
 - github-mcp / GitLab MCP — code structure (PRIMARY); ADR repo
 - digital-twin-core `runArchitectureRescan` for the latest snapshot
 
@@ -38,6 +38,6 @@ restricted — drafts only. Code wins on every conflict; never edit docs to
 contradict code.
 
 ## Graceful degradation
-If structurizr-mcp/jqassistant-mcp (planned) are unavailable, work from Git +
+If structurizr-mcp/jqassistant-mcp are unreachable, work from Git +
 existing model files, mark `DATA_STALE`, confidence ≤ MEDIUM, and limit output to
 gap identification rather than full DSL regeneration.

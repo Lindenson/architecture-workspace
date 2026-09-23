@@ -14,7 +14,7 @@ Backs OPERATING_MODEL `DELIVERY_SESSION` (Epic Coverage Analysis).
 - jira-mcp / Atlassian MCP — epic, child stories, statuses, estimates
 - github-mcp / GitLab MCP — branches/PRs/commits referencing the epic
 - ADR repo — decisions the epic depends on or should produce
-- jqassistant-mcp/Structurizr (planned) — components the epic affects
+- jqassistant-mcp/Structurizr — components the epic affects
 - sonar-mcp — quality of the touched code
 
 ## Procedure (DELIVERY_SESSION workflow)

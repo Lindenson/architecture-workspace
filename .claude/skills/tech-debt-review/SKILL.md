@@ -13,7 +13,7 @@ Backs OPERATING_MODEL `TECH_DEBT_SESSION` and AGENT_RUNTIME `ANALYZE_TECH_DEBT`
 
 ## Inputs / Sources
 - sonar-mcp — smells, bugs, vulnerabilities, coverage, debt ratio
-- jqassistant-mcp (planned) + ArchUnit — architecture violations, cycles
+- jqassistant-mcp + ArchUnit — architecture violations, cycles
 - ADR repo — decisions the debt contradicts; jira-mcp — existing debt tickets
 - github-mcp / GitLab MCP — Git history / churn for risk weighting
 

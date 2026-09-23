@@ -2,7 +2,8 @@
 
 > STATUS: starter. The **Retrieval-Augmented Generation** layer that lets the
 > digital twin answer questions grounded in the workspace's knowledge. This is
-> an **MVP-3** capability (planned), built on `pgvector`.
+> an **MVP-3** capability (shipped, OPTIONAL — off unless `KNOWLEDGE_ENABLED=true`),
+> built on `pgvector`.
 
 ## Pipeline
 
