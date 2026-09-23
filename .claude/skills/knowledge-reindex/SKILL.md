@@ -5,6 +5,12 @@ description: Refresh the retrieval layer so the next session starts with the dec
 
 # Knowledge Reindex — join point J4
 
+> **Loop B → Loop A bridge (join point J3).** Runs after `/speckit-converge`.
+> Reads the feature's artifacts; writes only `project-memory/` (append),
+> `quality/technical-debt/`, `reports/`, and drafts. Never edits product code, a
+> numbered ADR, a constraint or the C4 model.
+> Contract: [`../../OPERATING_LOOPS.md`](../../OPERATING_LOOPS.md)
+
 ## Purpose
 `decision-capture` writes the decision; this makes it *findable*. Without a
 reindex, J4 degrades to "newest five entries by filename" — a retrieval mode

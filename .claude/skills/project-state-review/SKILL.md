@@ -1,15 +1,32 @@
 ---
 name: project-state-review
-description: The flagship consolidated snapshot — architecture, delivery, quality, tech-debt, risk and knowledge gaps in one answer. Trigger on "show project state", "покажи состояние проекта", "что с проектом", "project status", as the default entry point for "where do we stand".
+description: RIGHT NOW — the live consolidated snapshot of the system as it stands this minute: architecture, delivery, quality, tech-debt, risk and knowledge gaps in one answer, rebuilt from the MCP sources on every run. The default entry point. Trigger on "show project state", "покажи состояние проекта", "что с проектом", "project status", "where do we stand", "какая сейчас картина". For the scored month-over-month view use project-health-review instead.
 ---
 
 # Project State Review
+
+> **Loop A — architecture maintenance.** Read-only over product code.
+> May write: `reports/`, `quality/`, `domain/raw/`, `domain/semantic/`,
+> `project-memory/` (append), and drafts under `architecture/adr/drafts/`,
+> `knowledge/drafts/`, `quality/technical-debt/drafts/`.
+> Architect-owned and blocked for you: numbered ADRs, `architecture/constraints/`,
+> `architecture/standards/`, `architecture/c4/workspace.dsl`, `domain/model/`,
+> `delivery/roadmap/`. Emit a draft and escalate instead of editing them —
+> drift is REPORTED, never erased by editing the model.
+> Contract: [`../../OPERATING_LOOPS.md`](../../OPERATING_LOOPS.md)
 
 ## Purpose
 Reconstruct the full digital twin and answer the success-criteria question
 ("Покажи текущее состояние проекта") in one consolidated, factual snapshot.
 Backs AGENT_RUNTIME `SHOW_PROJECT_STATE` (digital-twin-core `showProjectState`)
 and the OPERATING_MODEL Final Goal.
+
+**Not the same as [`project-health-review`](../project-health-review/SKILL.md).**
+This one answers *what is true now* and is rebuilt from live sources on every
+run — use it on demand, any time. The health review answers *is it getting
+better or worse*: it scores the same domains, compares against previous
+snapshots in `reports/`, and runs on the monthly cadence. If the question has no
+time dimension, it belongs here.
 
 ## Inputs / Sources (standard MCP call order)
 1. github-mcp / GitLab MCP — Git status (PRIMARY) · 2. jira-mcp — delivery ·

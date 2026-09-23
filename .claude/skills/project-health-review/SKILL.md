@@ -1,14 +1,32 @@
 ---
 name: project-health-review
-description: Produce a consolidated project-health snapshot across architecture, quality, debt, delivery, knowledge and risk. Trigger on "project health", "оцени здоровье проекта", "общее состояние проекта", "health check", for the monthly cadence or an executive summary.
+description: OVER TIME — a scored health assessment comparing the current state against previous snapshots in reports/, for the monthly cadence or an executive summary: are architecture, quality, debt, delivery, knowledge and risk getting better or worse, and what changed. Trigger on "project health", "оцени здоровье проекта", "health check", "стало лучше или хуже", "monthly review", "executive summary". For the live picture right now use project-state-review instead.
 ---
 
 # Project Health Review
 
+> **Loop A — architecture maintenance.** Read-only over product code.
+> May write: `reports/`, `quality/`, `domain/raw/`, `domain/semantic/`,
+> `project-memory/` (append), and drafts under `architecture/adr/drafts/`,
+> `knowledge/drafts/`, `quality/technical-debt/drafts/`.
+> Architect-owned and blocked for you: numbered ADRs, `architecture/constraints/`,
+> `architecture/standards/`, `architecture/c4/workspace.dsl`, `domain/model/`,
+> `delivery/roadmap/`. Emit a draft and escalate instead of editing them —
+> drift is REPORTED, never erased by editing the model.
+> Contract: [`../../OPERATING_LOOPS.md`](../../OPERATING_LOOPS.md)
+
 ## Purpose
-Give a single consolidated health picture of the digital twin spanning all state
-domains, with the top risks and recommendations. Aligns with the monthly
-procedure and the Project Health Snapshot of `ARCHITECTURE_RESCAN`.
+Score the digital twin across all state domains **and compare against history**,
+so the team sees direction, not just position. Aligns with the monthly procedure
+and the Project Health Snapshot of `ARCHITECTURE_RESCAN`.
+
+**Not the same as [`project-state-review`](../project-state-review/SKILL.md).**
+That one answers *what is true now* and is the default for any on-demand
+question. This one answers *which way are we moving*: it reads previous reports
+under `reports/` (daily, weekly, architecture, tech-debt), computes the delta per
+domain, and names what improved and what decayed. **Without at least one prior
+snapshot there is no trend** — say so and fall back to a single-point score
+rather than presenting a position as a direction.
 
 ## Inputs / Sources
 - digital-twin-core: `showProjectState`, `generateReport`, `analyzeTechDebt`,

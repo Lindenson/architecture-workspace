@@ -152,6 +152,8 @@ was right; `AIP_GATE_OVERRIDE="<reason>"` always works and is always logged.
 
 Full contract: [`.claude/OPERATING_LOOPS.md`](.claude/OPERATING_LOOPS.md).
 Verify the harness on your machine: `./automation/verify-hooks.sh` (26 checks).
+Measure whether it earns its keep: `./automation/harness-metrics.sh`.
+Breaking changes and migration: [`RELEASE-v2.md`](RELEASE-v2.md).
 
 ---
 
@@ -192,7 +194,8 @@ consolidated model with provenance and confidence.
 
 ## 🔝 Source-of-truth hierarchy
 
-On any conflict, the **higher** source wins:
+On any conflict, the **higher** source wins
+(canonical statement: [`CLAUDE.md`](CLAUDE.md)):
 
 ```
 1. Source code (Git)            ← absolute
@@ -259,7 +262,8 @@ architecture-workspace/
 │   └── digital-twin-core/  Orchestrator → DIGITAL_TWIN_MODEL
 ├── architecture-tests/   ArchUnit enforcement module (template for product repos)
 ├── db/                   pgvector schema (db/init.sql)
-├── .github/workflows/    ★ Architecture Gate CI (ArchUnit · C4 validity · contract integrity)
+├── .github/              ★ Architecture Gate CI + CODEOWNERS (the real merge gate)
+├── RELEASE-v2.md         ★ v2.0.0 release notes: breaking changes, migration, known limits
 ├── .mcp.json             MCP wiring (all servers; secrets via ${ENV})
 ├── .env.example          Credential template (copy to .env)
 └── docker-compose.yml    Postgres+pgvector, Neo4j, MCP servers
@@ -450,18 +454,21 @@ Claude Code build, and what *not* to copy between repos:
 
 ## ✅ Verified
 
-Every shipped MVP was built and exercised, not just written:
+Every shipped MVP was built and exercised, not just written. **Each claim below
+is dated** — a "verified" line with no date silently becomes a lie as the tree
+moves, which is the failure mode this whole repository is about:
 
-- **Build:** one Maven reactor compiles & packages **9 jars**; all module
-  `contextLoads` tests pass.
+- **Build (re-verified at v2.0.0):** one Maven reactor compiles & packages
+  **9 jars**; all module `contextLoads` tests pass. Confirmed in CI on the
+  `com.wolper.aip` namespace — the `Build MCP reactor` job is green on every PR.
 - **MCP/SSE:** servers boot in ~1 s, register their tools (e.g. jira-mcp 11,
   rag-mcp 6), serve `/sse` (401 without the internal token, 200 `text/event-stream`
   with it), and expose `/actuator/health`.
 - **Resilience:** every server boots and degrades gracefully when its upstream is
   down (Jira/GitHub/Sonar/Neo4j/Postgres unreachable → `DATA_STALE`, never a crash).
-- **Architecture (MVP-2):** structurizr-mcp parsed the real `workspace.dsl`
+- **Architecture (MVP-2, measured at v1.x):** structurizr-mcp parsed the real `workspace.dsl`
   (1 system, 7 containers, 4 components, 19 relationships, 3 views).
-- **RAG (MVP-3):** against Postgres+pgvector with **local ONNX embeddings**,
+- **RAG (MVP-3, measured at v1.x):** against Postgres+pgvector with **local ONNX embeddings**,
   reindexed **41 files → 84 chunks** and returned ranked, cited vector-search hits;
   with the layer off, the knowledge slice reports `DISABLED`.
 - **Harness (MVP-4):** `./automation/verify-hooks.sh` runs **26 assertions**

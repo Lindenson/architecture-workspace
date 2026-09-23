@@ -5,6 +5,12 @@ description: After a feature converges, account for the technical debt it closed
 
 # Technical Debt Delta — part of join point J3
 
+> **Loop B → Loop A bridge (join point J3).** Runs after `/speckit-converge`.
+> Reads the feature's artifacts; writes only `project-memory/` (append),
+> `quality/technical-debt/`, `reports/`, and drafts. Never edits product code, a
+> numbered ADR, a constraint or the C4 model.
+> Contract: [`../../OPERATING_LOOPS.md`](../../OPERATING_LOOPS.md)
+
 ## Purpose
 A feature that creates debt must say so in its own PR, not in next quarter's
 audit. Debt discovered later is attributed to nobody and paid by everybody.

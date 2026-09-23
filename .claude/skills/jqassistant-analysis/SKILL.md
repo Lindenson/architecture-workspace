@@ -5,6 +5,16 @@ description: Run precise dependency/architecture graph analysis via jQAssistant 
 
 # jQAssistant Analysis
 
+> **Loop A — architecture maintenance.** Read-only over product code.
+> May write: `reports/`, `quality/`, `domain/raw/`, `domain/semantic/`,
+> `project-memory/` (append), and drafts under `architecture/adr/drafts/`,
+> `knowledge/drafts/`, `quality/technical-debt/drafts/`.
+> Architect-owned and blocked for you: numbered ADRs, `architecture/constraints/`,
+> `architecture/standards/`, `architecture/c4/workspace.dsl`, `domain/model/`,
+> `delivery/roadmap/`. Emit a draft and escalate instead of editing them —
+> drift is REPORTED, never erased by editing the model.
+> Contract: [`../../OPERATING_LOOPS.md`](../../OPERATING_LOOPS.md)
+
 > **Status:** jqassistant-mcp is LIVE (port 8085, Neo4j). Query the graph — it is
 > the most precise source this workspace has. If Neo4j is down the tools return
 > `DATA_STALE`; only then fall back to ArchUnit reports plus static inspection of

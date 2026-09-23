@@ -70,10 +70,17 @@ exactly the bias this separation exists to remove.
 `tech-debt-review`, `architecture-drift-analysis`, `risk-analysis`,
 `release-readiness-review`) → report + escalation.
 
-**Loop B:** the phase order is enforced by hooks —
-`specify → feature-impact-analysis → clarify → spec-critic → ⟨HUMAN⟩ → plan →
-checklist → tasks → analyze → ⟨HUMAN⟩ → implement ⇄ converge → after_converge →
-PR → independent review → ⟨HUMAN⟩ → merge`.
+**Loop B:** the phase order is tracked by hooks and enforced on the merge path —
+`specify → feature-impact-analysis → clarify → spec-critic → ⟨HUMAN answers
+decisions.md⟩ → plan → checklist → tasks → analyze → ⟨HUMAN⟩ → implement ⇄
+converge → after_converge → PR → independent review → ⟨HUMAN⟩ → merge`.
+
+`after_converge` is four skills, not one (wired in `.specify/extensions.yml`):
+`architecture-drift-analysis` (did code and model diverge — and it clears the
+drift flag when the scan is complete) · `decision-capture` (the answered
+`decisions.md` rows become durable memory) · `tech-debt-delta` (what this feature
+closed, created or deferred) · `knowledge-reindex` (make it retrievable next
+session — optional, needs the knowledge layer on).
 
 If a phase artifact is missing, produce it — do not skip ahead. A blocked hook
 is information, not an obstacle to route around.

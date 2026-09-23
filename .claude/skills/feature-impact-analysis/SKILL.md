@@ -5,6 +5,11 @@ description: Build the context pack for a feature before planning it — blast r
 
 # Feature Impact Analysis — join point J1
 
+> **Loop B — spec implementation.** Runs in the PRODUCT repository against an
+> active feature. Writes only `specs/<feature>/` artifacts; never product code,
+> and never this workspace's governance files.
+> Contract: [`../../OPERATING_LOOPS.md`](../../OPERATING_LOOPS.md)
+
 ## Purpose
 Turn a natural-language specification into a **fact-grounded scope**: which code
 actually changes, which architectural decisions bind that code, and what is

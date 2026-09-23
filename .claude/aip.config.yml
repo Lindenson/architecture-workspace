@@ -7,6 +7,10 @@
 #   · scalars and inline lists `[a, b, c]` only — no block lists, no nesting
 #   · `#` starts a comment anywhere outside a quoted value
 # `automation/verify-hooks.sh` fails if this file stops parsing. Keep it flat.
+#
+# ENFORCED vs ADVISORY: `gate`, `architect_owned`, `memory` and `drift` are read
+# by the hooks — changing them changes behaviour. `impact` is advisory: a skill
+# obeys it, nothing checks that it did. Each section says which it is.
 
 gate:
   # block = exit 2 and stop  ·  warn = emit the reason, allow  ·  off = no gate
@@ -44,6 +48,11 @@ memory:
   rag_timeout_seconds: 3
 
 impact:
+  # ADVISORY, not enforced. No hook reads this section — feature-impact-analysis
+  # honours it because its SKILL.md says to. Listed here so the value lives in
+  # one place, but do not mistake it for a mechanism: changing it changes what
+  # the agent is told, not what any script does.
+  #
   # Depth of the reverse blast-radius traversal in the dependency graph.
   max_depth: 3
   # Confidence ceiling when the graph is unavailable and we fall back to packages.

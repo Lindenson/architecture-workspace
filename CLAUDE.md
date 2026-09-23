@@ -43,6 +43,8 @@ person decided anything.
    workspace into an implementation session is a context leak, not diligence.
 
 ## Source-of-truth hierarchy (on any conflict, higher wins)
+<!-- CANONICAL. README.md and CONTRIBUTING.md restate this for readers; every
+     other file links here instead of copying. Change it here first. -->
 1. Source code (Git)  2. Architecture scan (jQAssistant) + ArchUnit
 3. Structurizr  4. SonarQube  5. ADR  6. Jira  7. Wiki  8. Manual notes
 
