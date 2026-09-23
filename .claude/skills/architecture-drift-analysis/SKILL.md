@@ -5,6 +5,16 @@ description: Detect divergence between code reality and the intended architectur
 
 # Architecture Drift Analysis
 
+> **Loop A — architecture maintenance.** Read-only over product code.
+> May write: `reports/`, `quality/`, `domain/raw/`, `domain/semantic/`,
+> `project-memory/` (append), and drafts under `architecture/adr/drafts/`,
+> `knowledge/drafts/`, `quality/technical-debt/drafts/`.
+> Architect-owned and blocked for you: numbered ADRs, `architecture/constraints/`,
+> `architecture/standards/`, `architecture/c4/workspace.dsl`, `domain/model/`,
+> `delivery/roadmap/`. Emit a draft and escalate instead of editing them —
+> drift is REPORTED, never erased by editing the model.
+> Contract: [`../../OPERATING_LOOPS.md`](../../OPERATING_LOOPS.md)
+
 ## Purpose
 Surface every gap between what the code does and what the architecture says it
 should do. Implements the OPERATING_MODEL Architecture Drift Detection checklist
@@ -31,11 +41,29 @@ and feeds the Architecture Drift Engine in MCP_ORCHESTRATION_MAP.
 - **Linked artifacts** (Jira · ADR · Code · Sonar · components)
 - **Recommendations**: Problem · Evidence · Impact · Recommendation · Priority ·
   Related ADR · Related Jira · Related Components
-- Deliverable: Architecture Drift Report in `reports/`.
+- Deliverable: Architecture Drift Report in `reports/drift/`.
+
+## Clear the drift flag when the scan is genuinely done
+The `PostToolUse` hook appends every product-code change to the drift flag
+(`.claude/.drift-pending`), and the session digest surfaces it. **After a
+completed rescan, run:**
+
+```bash
+./automation/reset-drift-flag.sh        # archives the entries, clears the flag
+```
+
+Without this the flag is a one-way latch: one code edit and every future session
+is warned forever, which teaches the team to ignore the warning — and then the
+one that mattered is ignored too. Only clear it after an actual scan covering
+those files; clearing it to silence the message is falsifying the record.
+
+If the scan was partial (graph unreachable, only ArchUnit available), say so and
+**leave the flag set**.
 
 ## Guardrails
-Read-only. Remediation that changes constraints/ADRs is a draft only. Escalate
-critical drift, ADR violations, cycles and any PII/PCI boundary crossing.
+Read-only over product code. Remediation that changes constraints/ADRs is a
+draft only. Escalate critical drift, ADR violations, cycles and any PII/PCI
+boundary crossing.
 
 ## Graceful degradation
 If jqassistant-mcp/structurizr-mcp are unreachable, rely on Git + ArchUnit + ADR

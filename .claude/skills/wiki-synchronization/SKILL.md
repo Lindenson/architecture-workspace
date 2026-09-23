@@ -5,6 +5,16 @@ description: Reconcile the team Wiki/Confluence with code, ADRs and the digital 
 
 # Wiki Synchronization
 
+> **Loop A — architecture maintenance.** Read-only over product code.
+> May write: `reports/`, `quality/`, `domain/raw/`, `domain/semantic/`,
+> `project-memory/` (append), and drafts under `architecture/adr/drafts/`,
+> `knowledge/drafts/`, `quality/technical-debt/drafts/`.
+> Architect-owned and blocked for you: numbered ADRs, `architecture/constraints/`,
+> `architecture/standards/`, `architecture/c4/workspace.dsl`, `domain/model/`,
+> `delivery/roadmap/`. Emit a draft and escalate instead of editing them —
+> drift is REPORTED, never erased by editing the model.
+> Contract: [`../../OPERATING_LOOPS.md`](../../OPERATING_LOOPS.md)
+
 > **Status:** wiki-mcp is LIVE (port 8086) but belongs to the OPTIONAL knowledge
 > layer: it runs only with `KNOWLEDGE_ENABLED=true`. Check `getState` first — a
 > `DISABLED` answer is a valid answer, not a failure. When the layer is off, use

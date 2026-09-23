@@ -5,6 +5,11 @@ description: Adversarially review a feature specification BEFORE implementation 
 
 # Spec Critic — join point J2
 
+> **Loop B — spec implementation.** Runs in the PRODUCT repository against an
+> active feature. Writes only `specs/<feature>/` artifacts; never product code,
+> and never this workspace's governance files.
+> Contract: [`../../OPERATING_LOOPS.md`](../../OPERATING_LOOPS.md)
+
 ## Purpose
 Find the problems in a specification while they are still cheap. The critic is
 **adversarial but not authoritative**: it challenges decisions, it never makes

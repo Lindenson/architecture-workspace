@@ -5,6 +5,16 @@ description: Audit Architecture Decision Records for staleness, contradictions a
 
 # ADR Review
 
+> **Loop A — architecture maintenance.** Read-only over product code.
+> May write: `reports/`, `quality/`, `domain/raw/`, `domain/semantic/`,
+> `project-memory/` (append), and drafts under `architecture/adr/drafts/`,
+> `knowledge/drafts/`, `quality/technical-debt/drafts/`.
+> Architect-owned and blocked for you: numbered ADRs, `architecture/constraints/`,
+> `architecture/standards/`, `architecture/c4/workspace.dsl`, `domain/model/`,
+> `delivery/roadmap/`. Emit a draft and escalate instead of editing them —
+> drift is REPORTED, never erased by editing the model.
+> Contract: [`../../OPERATING_LOOPS.md`](../../OPERATING_LOOPS.md)
+
 ## Purpose
 Verify that every ADR still matches the code, is internally consistent, and is
 linked to the decisions it governs. Part of the weekly procedure

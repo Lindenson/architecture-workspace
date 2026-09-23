@@ -5,6 +5,16 @@ description: Draft release notes from merged changes and completed Jira scope. T
 
 # Release Notes Generation
 
+> **Loop A — architecture maintenance.** Read-only over product code.
+> May write: `reports/`, `quality/`, `domain/raw/`, `domain/semantic/`,
+> `project-memory/` (append), and drafts under `architecture/adr/drafts/`,
+> `knowledge/drafts/`, `quality/technical-debt/drafts/`.
+> Architect-owned and blocked for you: numbered ADRs, `architecture/constraints/`,
+> `architecture/standards/`, `architecture/c4/workspace.dsl`, `domain/model/`,
+> `delivery/roadmap/`. Emit a draft and escalate instead of editing them —
+> drift is REPORTED, never erased by editing the model.
+> Contract: [`../../OPERATING_LOOPS.md`](../../OPERATING_LOOPS.md)
+
 ## Purpose
 Produce a factual, audience-ready release-notes draft for a version, derived from
 Git history and completed Jira scope, with architecture-relevant changes called
