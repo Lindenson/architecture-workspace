@@ -12,8 +12,8 @@ and feeds the Architecture Drift Engine in MCP_ORCHESTRATION_MAP.
 
 ## Inputs / Sources
 - github-mcp / GitLab MCP — current code structure (PRIMARY)
-- jqassistant-mcp (planned) — dependency graph, cycles, forbidden edges
-- ArchUnit reports; Structurizr model (structurizr-mcp, planned)
+- jqassistant-mcp — dependency graph, cycles, forbidden edges
+- ArchUnit reports; Structurizr model (structurizr-mcp)
 - ADR repo under `architecture/adr/`; jira-mcp — intended scope; sonar-mcp
 
 ## Procedure (Drift Detection checklist)
@@ -38,6 +38,6 @@ Read-only. Remediation that changes constraints/ADRs is a draft only. Escalate
 critical drift, ADR violations, cycles and any PII/PCI boundary crossing.
 
 ## Graceful degradation
-Without jqassistant-mcp/structurizr-mcp (planned), rely on Git + ArchUnit + ADR
+If jqassistant-mcp/structurizr-mcp are unreachable, rely on Git + ArchUnit + ADR
 diff, mark `DATA_STALE`, confidence ≤ MEDIUM, and note which drift classes could
 not be checked (e.g. C4 divergence).

@@ -15,7 +15,7 @@ risk — all from objective signals. Back `RELEASE_SESSION` /
 ## Sources / MCP (runtime-discovered; trust order)
 Code (Git via github-mcp / GitLab MCP) > jira-mcp / Atlassian MCP (scope,
 defects, fix-versions) > sonar-mcp (Quality Gate, new-code coverage) > ADR repo
-+ ArchUnit/jqassistant (planned, architecture compliance). Use digital-twin-core
++ ArchUnit/jqassistant (architecture compliance). Use digital-twin-core
 `analyzeReleaseReadiness` where available.
 
 ## Procedure

@@ -13,7 +13,7 @@ APIs — not in assumptions. Supports OPERATING_MODEL `KNOWLEDGE_SESSION`
 ## Inputs / Sources
 - github-mcp / GitLab MCP — source tree, build files (Maven `pom.xml`), configs
 - OpenAPI/contract specs in the repo; ADR repo for design rationale
-- jira-mcp — purpose/scope context; rag-mcp (planned) — related docs
+- jira-mcp — purpose/scope context; rag-mcp (optional knowledge layer) — related docs
 
 ## Procedure
 1. Read the module: build coordinates, Java version, Spring Boot setup, layering

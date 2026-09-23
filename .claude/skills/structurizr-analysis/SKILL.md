@@ -5,8 +5,10 @@ description: Analyze the Structurizr C4 model and check it against code reality.
 
 # Structurizr Analysis
 
-> **MVP status:** structurizr-mcp is *planned*. Until live, work from the
-> Structurizr DSL/workspace files committed in the repo.
+> **Status:** structurizr-mcp is LIVE (port 8084). Use `readWorkspace`,
+> `listElements`, `listRelationships` and `detectDrift` against the committed
+> `architecture/c4/workspace.dsl`. Reading the DSL by hand is the fallback for a
+> server outage, not the default.
 
 ## Purpose
 Assess the C4 model (`ARCHITECTURE_MODEL`) for completeness and consistency with
@@ -14,9 +16,9 @@ the code, and surface Code↔Structurizr drift. Supports `ARCHITECT_SESSION` and
 `UPDATE_ARCHITECTURE_MODEL`.
 
 ## Inputs / Sources
-- structurizr-mcp (planned) / DSL files — containers, components, relationships
+- structurizr-mcp / DSL files — containers, components, relationships
 - github-mcp / GitLab MCP — actual code structure (PRIMARY)
-- jqassistant-mcp (planned) — dependency graph to validate relationships
+- jqassistant-mcp — dependency graph to validate relationships
 - ADR repo — decisions the model should reflect
 
 ## Procedure

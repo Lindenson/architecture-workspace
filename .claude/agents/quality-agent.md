@@ -13,7 +13,7 @@ ArchUnit results, and query jQAssistant for codified architecture constraints â€
 turning all three into pass/fail compliance with evidence.
 
 ## Sources / MCP (runtime-discovered; trust order)
-Code (Git) > jqassistant-mcp (planned) + ArchUnit reports > sonar-mcp (Quality
+Code (Git) > jqassistant-mcp + ArchUnit reports > sonar-mcp (Quality
 Gate, bugs, vulnerabilities, smells, coverage, duplication, debt ratio) > ADR repo
 (quality-related decisions/constraints). If jqassistant-mcp is offline, rely on
 ArchUnit + Sonar and lower confidence.

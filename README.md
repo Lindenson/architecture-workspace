@@ -172,7 +172,7 @@ Verify the harness on your machine: `./automation/verify-hooks.sh` (26 checks).
               │  jira-mcp :8081│   │github :8082│  │ sonar  :8083 │   + jqassistant :8085,
               │  DELIVERY_STATE│   │ CODE_STATE │  │QUALITY/DEBT  │     structurizr :8084,
               └───────┬────────┘   └─────┬──────┘  └──────┬───────┘     rag :8088 + wiki :8086
-                                                                        (optional); planned: openspec
+                                                                        (optional)
                       │                  │                │
                  ┌────▼───┐         ┌────▼────┐      ┌─────▼─────┐
                  │  Jira  │         │ GitHub/ │      │ SonarQube │

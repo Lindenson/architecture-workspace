@@ -16,7 +16,7 @@ recommendations.
 Code (Git) > jqassistant-mcp + ArchUnit (architecture violations) > sonar-mcp
 (smells, bugs, vulnerabilities, coverage, debt ratio) > ADR repo > jira-mcp.
 Use digital-twin-core `analyzeTechDebt` where available. If jqassistant-mcp
-(planned) is offline, rely on ArchUnit + Sonar and lower confidence.
+is offline, rely on ArchUnit + Sonar and lower confidence.
 
 ## Procedure
 1. Pull Sonar issues; map to modules and bounded contexts.

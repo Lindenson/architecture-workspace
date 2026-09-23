@@ -13,8 +13,8 @@ retrieval, consolidation of sources, contradiction detection, and Project Memory
 upkeep. Back `UPDATE_KNOWLEDGE_BASE` / `KNOWLEDGE_SESSION`.
 
 ## Sources / MCP (runtime-discovered; trust order)
-Code (Git) > ADR repo > Structurizr > rag-mcp / pgvector (planned, semantic
-retrieval & history) > wiki-mcp (planned) / Confluence MCP > Project Memory under
+Code (Git) > ADR repo > Structurizr > rag-mcp / pgvector (optional knowledge layer, semantic
+retrieval & history) > wiki-mcp (optional knowledge layer) / Confluence MCP > Project Memory under
 `project-memory/`. If rag-mcp is offline, fall back to direct repo search
 (Grep/Glob) and lower confidence.
 

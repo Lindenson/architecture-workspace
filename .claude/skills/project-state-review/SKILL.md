@@ -13,8 +13,8 @@ and the OPERATING_MODEL Final Goal.
 
 ## Inputs / Sources (standard MCP call order)
 1. github-mcp / GitLab MCP — Git status (PRIMARY) · 2. jira-mcp — delivery ·
-3. sonar-mcp — quality · 4. jqassistant-mcp (planned) — architecture graph ·
-5. structurizr-mcp (planned) — C4 · 6. wiki-mcp (planned) · 7. rag-mcp (planned).
+3. sonar-mcp — quality · 4. jqassistant-mcp — architecture graph ·
+5. structurizr-mcp — C4 · 6. wiki-mcp · 7. rag-mcp (6 and 7 only when the optional knowledge layer is enabled).
 Plus Project Memory and ADR repo.
 
 ## Procedure (SHOW_PROJECT_STATE pipeline)
@@ -38,6 +38,6 @@ Plus Project Memory and ADR repo.
 
 ## Guardrails
 Read/synthesize only — no source mutations. Never cache without refreshing
-sources (code always refreshed). Where a planned MCP is offline, mark
+sources (code always refreshed). Where an MCP is offline, mark
 `DATA_STALE` and lower that domain's confidence. Escalate critical findings.
 Delegate deep dives to the matching subagent.

@@ -15,7 +15,7 @@ OPERATING_MODEL `RELEASE_SESSION` and AGENT_RUNTIME `ANALYZE_RELEASE_READINESS`
 - jira-mcp — epic/story status, open defects, release scope
 - github-mcp / GitLab MCP — merged changes, open PRs, pipelines
 - sonar-mcp — Quality Gate, new-code coverage, blockers
-- ADR repo + jqassistant-mcp/ArchUnit (planned) — architecture compliance
+- ADR repo + jqassistant-mcp/ArchUnit — architecture compliance
 
 ## Procedure (RELEASE_SESSION workflow)
 1. `analyzeReleaseReadiness` for the target version/milestone.
