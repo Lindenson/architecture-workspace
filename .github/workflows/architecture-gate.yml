@@ -19,7 +19,12 @@ permissions:
   pull-requests: read
 
 env:
-  STRUCTURIZR_CLI_VERSION: "2024.11.03"   # pinned: :latest silently changes the gate
+  # Pinned deliberately: :latest silently changes the gate.
+  # NOTE: structurizr/cli was ARCHIVED upstream on 2026-02-04 and is read-only;
+  # v2025.11.09 is its final release. The image still validates DSL correctly,
+  # but it will not receive fixes. Revisit when you next touch workspace.dsl —
+  # DSL validation has moved into the main structurizr/structurizr tooling.
+  STRUCTURIZR_CLI_VERSION: "v2025.11.09"
 
 jobs:
   build:
@@ -49,7 +54,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: |
+      - name: Validate workspace.dsl
+        run: |
+          set -euo pipefail
+          # If this tag ever disappears, fail loudly rather than falling back to
+          # :latest — an unpinned validator is not a gate.
           docker run --rm -v "$PWD/architecture/c4:/usr/local/structurizr" \
             "structurizr/cli:${STRUCTURIZR_CLI_VERSION}" validate -workspace workspace.dsl
 
