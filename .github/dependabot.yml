@@ -1,0 +1,39 @@
+# A public Apache-2.0 repository that other teams install as a Claude Code
+# plugin. Dependency updates must arrive on a schedule, not when someone
+# remembers — the same argument this platform makes about architecture drift.
+
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /mcp-servers
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # One PR per ecosystem bump rather than twenty. Spring Boot moves its
+      # whole BOM together; reviewing that as twenty PRs teaches people to
+      # rubber-stamp, which is how a bad bump gets in.
+      spring:
+        patterns: ["org.springframework*", "io.spring*"]
+      test-and-build:
+        patterns: ["org.junit*", "org.apache.maven.plugins*", "org.mockito*"]
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels: ["dependencies", "ci"]
+    commit-message:
+      prefix: "chore(ci)"
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "chore(docker)"

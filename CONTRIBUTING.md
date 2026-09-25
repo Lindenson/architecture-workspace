@@ -20,6 +20,19 @@ approval by the architect**, never directly.
   debt; promoting a Structurizr model as "approved"). See
   [`.claude/ROLE_ARCHITECT_AGENT.md`](.claude/ROLE_ARCHITECT_AGENT.md).
 
+### Tests are part of the contract
+
+A new `@Tool` method needs a behavioural test whenever it **guards** something:
+a write gate, an input validator, a degradation path, anything that returns
+`ERROR` or `DATA_STALE` on purpose. `contextLoads` proves Spring started; it
+proves nothing about the guarantee.
+
+Write them without infrastructure. Every existing guard test runs against a fake
+client or a null driver, which is also how they prove the guard fires *before*
+the upstream call rather than after it. See `JqaServiceGuardTest` for the
+pattern: a recording fake that records what reached the database, so a test
+fails if anything did.
+
 ## 2. Code (the MCP servers, ArchUnit module, automation)
 
 Standard open-source flow:
