@@ -85,15 +85,36 @@ risk-analysis · project-state-review
 
 ## MCP Servers
 
-- **jira-mcp** — createIssue, updateIssue, linkIssue, searchIssues, transitionIssue
-- **github-mcp** — searchPR, readRepository, readCommits, readBranches, readTags
-- **gitlab-mcp** — аналогично GitHub
-- **sonarqube-mcp** — qualityGate, technicalDebt, securityIssues, codeSmells, coverage
-- **wiki-mcp** — readPages, updatePages, searchPages
-- **openspec-mcp** — readSpecifications, readRequirements, analyzeChanges
-- **structurizr-mcp** — readWorkspace, generateDiagrams, validateModel
-- **jqassistant-mcp** — runScan, runAnalysis, queryGraph, readReports
-- **rag-mcp** — searchKnowledge, indexDocuments, updateEmbeddings, retrieveContext
+<!-- VERIFIED AGAINST THE CODE — see .claude/MCP_SERVERS.md for the full surface.
+     These are real @Tool method names, not a wish list. CI checks them. -->
+
+- **digital-twin-core** — showProjectState, analyzeTechDebt, analyzeReleaseReadiness,
+  runArchitectureRescan, generateReport, updateKnowledgeBase
+- **jira-mcp** — createIssue, updateIssue, addComment, linkIssues, searchIssues,
+  getIssue, getEpics, getIssuesForEpic, getTransitions, transitionIssue
+- **github-mcp** — searchPullRequests, analyzePullRequest, extractChangesets,
+  readRepository, repoSnapshot, readCommits, readBranches, readTags.
+  **GitLab is served by this same server**; there is no separate gitlab-mcp.
+- **sonar-mcp** — qualityGate, technicalDebt, securityIssues, codeSmells, coverage,
+  fetchReport
+- **structurizr-mcp** — readWorkspace, validateModel, listElements, listRelationships,
+  getViews, detectDrift. *(There is no `generateDiagrams`: rendering is Structurizr's
+  own job, this server reads and validates the model.)*
+- **jqassistant-mcp** — queryGraph (read-only Cypher, takes named params), findCycles,
+  findLayeringViolations, dependenciesOf, dependentsOf (blast radius), godClasses,
+  runScan. *(There is no `runAnalysis`/`readReports`: analysis runs in the
+  jQAssistant CLI, this server queries the resulting Neo4j graph.)*
+- **rag-mcp** — search, retrieveContext, indexPath, reindexAll, updateEmbeddings
+  *(optional knowledge layer — `KNOWLEDGE_ENABLED=true`)*
+- **wiki-mcp** — searchPages, getPage, listPages, readPages, updatePage
+  *(optional knowledge layer)*
+
+Every server also exposes **getState**, which returns `LIVE` / `DATA_STALE` /
+`DISABLED` with a source and confidence. Call it when an answer looks wrong before
+concluding the data is wrong.
+
+`openspec-mcp` was dropped: Spec Kit writes its artifacts into the product
+repository and Loop B reads them there. See `.claude/OPERATING_LOOPS.md`.
 
 ---
 

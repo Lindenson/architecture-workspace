@@ -7,9 +7,19 @@ Version: 1.0 · Type: Execution Layer Specification · Applies to: Chief Agent, 
 порядок обращения к MCP, правила обновления состояния, формат записи результатов,
 runtime-ограничения.
 
+## Scope: LOOP A only
+Каждая команда этого файла — команда **Loop A (architecture maintenance)**:
+наблюдение за системой, только чтение продуктового кода. Работа над фичей идёт
+в **Loop B** через Spec Kit и скиллы `feature-impact-analysis` / `spec-critic` /
+`decision-capture`, и ни одна из команд ниже к ней не относится.
+Контракт обоих циклов: [`OPERATING_LOOPS.md`](OPERATING_LOOPS.md).
+Определи цикл до того, как что-то делать: `skills/session-orientation/SKILL.md`.
+
 ## Core Principle
-Агент не рассуждает в вакууме. Агент всегда выполняет одну из команд Runtime
-Layer. Каждая команда: вход · источники данных · pipeline · выходной артефакт.
+Агент не рассуждает в вакууме. **В Loop A** агент всегда выполняет одну из команд
+Runtime Layer. Каждая команда: вход · источники данных · pipeline · выходной
+артефакт. В Loop B роль команд играют фазы Spec Kit, а их порядок отслеживают
+хуки — см. `OPERATING_LOOPS.md`.
 
 ## Command Interface
 ```

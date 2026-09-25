@@ -24,7 +24,7 @@ sources/ ──chunk──▶ chunks/ ──embed──▶ embeddings/ ──ind
   (see [ADR-001](../architecture/adr/ADR-001-postgresql.md)). The table DDL is in
   the product's `db/init.sql` (TODO: link once the schema exists) — not in this
   workspace.
-- The `rag-mcp` server exposes `searchKnowledge` / `retrieveContext` over it.
+- The `rag-mcp` server exposes `search` / `retrieveContext` over it.
 
 ## What gets indexed
 
