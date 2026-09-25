@@ -63,6 +63,40 @@ Request / response / error contracts · backward compatibility · versioning ·
 validation · authorization · schema changes · migration **and rollback** ·
 retention · indexes · constraints · transaction boundaries.
 
+### Memory — does this contradict a decision already made?
+
+**Run this check explicitly; do not fold it into "architecture compliance".**
+A memory nobody argues with is an archive.
+
+`project-memory/` holds entries of type `rejected` and `accepted trade-off`
+alongside the adopted ones. That is the expensive half: ADRs record what was
+chosen, memory records what was *considered and turned down*, and why. It is
+worth nothing if a feature can quietly propose the same thing six months later
+and no one raises a hand.
+
+1. Extract the approach the spec proposes — technology, pattern, boundary,
+   storage choice, integration style.
+2. Search `project-memory/` for entries touching the same subject. Use
+   `rag-mcp.retrieveContext` when the knowledge layer is on; otherwise grep the
+   directory. Read the `type:` and `bounded_context:` metadata, not only titles.
+3. For each `rejected` or `superseded` entry that matches:
+   - If the spec proposes it again, raise a **Critical Issue** citing the entry
+     by filename and date. The finding is not "this is wrong" — it is "this was
+     rejected on <date> for <reason>; the spec must say what changed."
+   - Reversing an old decision is legitimate and often correct. What is not
+     legitimate is reversing it *without noticing*. Force the argument into the
+     open, then let the human decide.
+4. Check `Revisit when` on matching adopted entries. If the stated condition has
+   now come true, say so: the earlier decision may be due for review regardless
+   of this feature.
+5. If memory holds nothing about the subject, say that too. "No prior decision
+   found on X" is information — it tells the human they are deciding this for
+   the first time.
+
+Never overrule memory yourself, and never treat an old entry as binding. The
+critic surfaces the contradiction; the human resolves it, and
+`decision-capture` records the resolution as a new entry superseding the old.
+
 ### Architecture compliance
 Does the spec require anything an ADR or constraint forbids? Does it introduce an
 undocumented cross-service dependency? Does it deepen debt listed in `impact.md`?
@@ -99,6 +133,14 @@ Required human decision: ...
 
 ## Domain / Architecture Concerns
 ### D1 — ...
+
+## Contradicts a Prior Decision
+### P1 — <subject>
+Prior entry: project-memory/YYYY-MM-DD-slug.md (type: rejected, <date>)
+Then: <what was rejected and why>
+Now: <what this spec proposes>
+What must change to justify reversing it: ...
+(or: "No prior decision found on <subject> — this is being decided for the first time.")
 
 ## Failure Modes
 ### F1 — ...
@@ -140,6 +182,8 @@ answered in a chat window and lost.
   cap the critique's confidence accordingly.
 - Append to `decisions.md`; never fill its `Answer` / `Answered by` / `Status`
   columns. You raise questions; humans close them.
+- A prior rejection is evidence, not a veto. Cite it, state what would have to
+  be true to reverse it, and stop there.
 - `READY` is a recommendation, not an approval. The real approval is a human on
   the PR (CODEOWNERS); every gate evaluation is recorded in `gate-log.md` so a
   reviewer can see whether a status was earned or asserted.

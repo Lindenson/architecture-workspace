@@ -121,6 +121,26 @@ They exchange four named artifacts. A human owns every gate.
 Corollary: **one loop per session.** The agent that implements a feature is not
 the agent that certifies the architecture afterwards.
 
+### What the memory actually does
+
+`project-memory/` records **rejected** options and accepted trade-offs, not only
+adopted decisions — ADRs cover what was chosen; only memory covers what was
+considered and turned down, which is the half that gets forgotten and re-argued.
+
+Two skills make it act rather than accumulate:
+- `spec-critic` runs an explicit contradiction check. A spec proposing something
+  a prior entry rejected gets a Critical Issue citing that entry by date, asking
+  what changed. Reversing an old decision is legitimate; reversing it without
+  noticing is not.
+- `project-health-review` sweeps every entry's `Revisit when` condition against
+  the current state of the twin and lists the decisions whose condition has come
+  true. Without the sweep that field is decoration.
+
+And `traceability-matrix` turns the Definition of Done into something refutable:
+`REQ → task → commit → component in the graph → ADR → the test that names it`,
+plus the requirements missing one of those. CI fails a merge where a requirement
+has no test at all.
+
 ### Where the human actually stands
 
 `specs/<feature>/decisions.md` is the **decision ledger**: `impact.md` and

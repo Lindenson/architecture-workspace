@@ -50,7 +50,18 @@ hooks:
         closed, what was created, what was knowingly deferred.
       enabled: true
 
-    # 4. OPTIONAL — keep the retrieval layer current so the NEXT session starts
+    # 4. Turn the Definition of Done from a checklist into a claim that can be
+    #    refuted: REQ -> task -> commit -> component -> ADR -> test, plus the
+    #    gaps. Runs before the PR so the gaps are reviewed, not discovered later.
+    - name: traceability-matrix
+      description: >
+        Walk every requirement to its evidence and name the ones missing a task,
+        a commit or a named test. Also reports changes that landed OUTSIDE the
+        blast radius impact.md predicted — either the analysis was wrong or the
+        implementation went somewhere it was not meant to.
+      enabled: true
+
+    # 5. OPTIONAL — keep the retrieval layer current so the NEXT session starts
     #    with this feature's decisions already in context (join point J4).
     #    Requires KNOWLEDGE_ENABLED=true and rag-mcp running.
     - name: knowledge-reindex

@@ -294,6 +294,38 @@ jobs:
             fi
           done < <(find specs -name decisions.md 2>/dev/null)
           exit $found
+      - name: No requirement reaches a merge without a test
+        run: |
+          set -euo pipefail
+          # traceability.md marks a requirement with no named test as NO TEST.
+          # A Definition of Done that a human ticks proves only that a human
+          # ticked it; this is the machine-checkable half.
+          found=0
+          while IFS= read -r f; do
+            if grep -q 'NO TEST' "$f"; then
+              echo "::error file=$f::requirement(s) with no test reaching a merge"
+              grep -n 'NO TEST' "$f" | head -5
+              found=1
+            fi
+          done < <(find specs -name traceability.md 2>/dev/null)
+          exit $found
+
+      - name: Surface changes outside the predicted blast radius
+        run: |
+          set -euo pipefail
+          # Not a failure: either the impact analysis was wrong or the
+          # implementation went somewhere it was not meant to. Both deserve a
+          # human's eye on the PR, neither is automatically wrong.
+          while IFS= read -r f; do
+            # -q with -A is meaningless (quiet suppresses the context it just
+            # asked for); read the section, then test it.
+            section=$(sed -n '/Outside the predicted blast radius/,/^## /p' "$f")
+            if printf '%s' "$section" | grep -q '| NO |'; then
+              echo "::warning file=$f::this feature changed components outside its predicted blast radius"
+              printf '%s' "$section" | grep '| NO |' | head -5
+            fi
+          done < <(find specs -name traceability.md 2>/dev/null)
+
       - name: Surface gate overrides for the reviewer
         run: |
           set -euo pipefail
