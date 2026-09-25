@@ -49,11 +49,12 @@ jobs:
           # nowhere. This step stops that returning quietly.
           behavioural=$(grep -rl '@Test' mcp-servers --include='*Test.java' | wc -l)
           echo "behavioural test classes: $behavioural"
-          [ "$behavioural" -ge 5 ] || {
-            echo "::error::behavioural test classes dropped below 5 — the guards are unasserted again"
+          [ "$behavioural" -ge 6 ] || {
+            echo "::error::behavioural test classes dropped below 6 — the guards are unasserted again"
             exit 1; }
           for must in JqaServiceGuardTest JiraWriteGateTest VectorStoreTest \
-                      McpResponseContractTest InternalTokenAuthFilterTest; do
+                      McpResponseContractTest InternalTokenAuthFilterTest \
+                      RestClientFactoryTimeoutTest; do
             find mcp-servers -name "$must.java" | grep -q . || {
               echo "::error::$must is missing — a security or contract guard lost its test"; exit 1; }
           done

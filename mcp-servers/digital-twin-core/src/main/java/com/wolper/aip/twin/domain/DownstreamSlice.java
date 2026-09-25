@@ -32,12 +32,14 @@ public record DownstreamSlice(
         return status == McpStatus.DATA_STALE;
     }
 
-    /** A slice for a planned-but-not-running downstream (MVP-2+/MVP-3). */
-    public static DownstreamSlice planned(String source, String message) {
-        return new DownstreamSlice(McpStatus.DATA_STALE, source, Confidence.LOW, null, message);
-    }
-
-    /** A stale slice produced when a live downstream is unreachable. */
+    /**
+     * A stale slice produced when a downstream is unreachable.
+     *
+     * <p>There used to be a second, byte-identical factory called
+     * {@code planned()}, for downstreams that did not exist yet. Every server
+     * now ships, nothing called it, and two names for one outcome invite the
+     * question "which do I use here?" — so there is one.
+     */
     public static DownstreamSlice unreachable(String source, String message) {
         return new DownstreamSlice(McpStatus.DATA_STALE, source, Confidence.LOW, null, message);
     }

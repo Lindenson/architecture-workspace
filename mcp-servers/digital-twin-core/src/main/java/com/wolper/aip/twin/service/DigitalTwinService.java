@@ -19,6 +19,10 @@ import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Supplier;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -67,8 +71,11 @@ public class DigitalTwinService {
 
     // ------------------------------------------------------------------ tools
 
-    @Tool(description = "SHOW_PROJECT_STATE: fan out to Jira (delivery), GitHub (code) and Sonar (quality+debt), "
-            + "merge into the DIGITAL_TWIN_MODEL with provenance, freshness, overall confidence and recommendations.")
+    @Tool(description = "SHOW_PROJECT_STATE: fan out IN PARALLEL to Jira (delivery), GitHub (code), "
+            + "Sonar (quality+debt), jQAssistant (dependency graph), Structurizr (C4 model) and — when the "
+            + "optional knowledge layer is enabled — rag and wiki. Merge into the DIGITAL_TWIN_MODEL with "
+            + "provenance, freshness, overall confidence and recommendations. This is the single call that "
+            + "returns the whole current state: prefer it over querying the sources one by one.")
     public McpResponse showProjectState() {
         try {
             DigitalTwinModel model = buildModel();
@@ -284,12 +291,55 @@ public class DigitalTwinService {
     // ----------------------------------------------------------- model build
 
     /** Fan out to the live downstreams and merge into the DIGITAL_TWIN_MODEL. */
+    /**
+     * Virtual threads: these tasks are pure I/O waiting on HTTP, so a fixed pool
+     * sized for CPUs would be exactly the wrong shape. One carrier thread serves
+     * all seven while they block.
+     */
+    private static final ExecutorService FANOUT =
+            Executors.newVirtualThreadPerTaskExecutor();
+
+    /**
+     * Run one downstream fetch off-thread.
+     *
+     * <p>The supplier is expected to convert its own failure into a stale slice —
+     * every fetchX() does. The catch here is a backstop for a genuinely
+     * unexpected throw, so that ONE broken source can never take down the whole
+     * snapshot: a partial model with a named stale source is useful, an
+     * exception is not.
+     */
+    private CompletableFuture<DownstreamSlice> supply(Supplier<DownstreamSlice> fetch) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return fetch.get();
+            } catch (RuntimeException e) {
+                log.warn("Downstream fetch threw unexpectedly: {}", e.toString());
+                return DownstreamSlice.unreachable("fan-out", e.getMessage());
+            }
+        }, FANOUT);
+    }
+
     private DigitalTwinModel buildModel() {
-        DownstreamSlice jira = fetchJira();
-        DownstreamSlice github = fetchGithub();
-        DownstreamSlice sonar = fetchSonar();
-        DownstreamSlice jqa = fetchJqassistant();
-        DownstreamSlice structurizr = fetchStructurizr();
+        // Fan out in PARALLEL. These five slices are independent — no ordering,
+        // no shared state — so fetching them one after another simply added
+        // their latencies together. With upstreams across a network that is the
+        // difference between a snapshot and a coffee break.
+        //
+        // Combined with the client timeouts in RestClientFactory this gives the
+        // command a predictable ceiling: max(timeout) rather than sum(latency).
+        // Each fetch already converts its own failure into a stale slice, so
+        // join() cannot throw here.
+        CompletableFuture<DownstreamSlice> jiraF = supply(this::fetchJira);
+        CompletableFuture<DownstreamSlice> githubF = supply(this::fetchGithub);
+        CompletableFuture<DownstreamSlice> sonarF = supply(this::fetchSonar);
+        CompletableFuture<DownstreamSlice> jqaF = supply(this::fetchJqassistant);
+        CompletableFuture<DownstreamSlice> structurizrF = supply(this::fetchStructurizr);
+
+        DownstreamSlice jira = jiraF.join();
+        DownstreamSlice github = githubF.join();
+        DownstreamSlice sonar = sonarF.join();
+        DownstreamSlice jqa = jqaF.join();
+        DownstreamSlice structurizr = structurizrF.join();
 
         SubState delivery = SubState.from("delivery", jira);
         SubState code = SubState.from("code", github);
@@ -310,8 +360,10 @@ public class DigitalTwinService {
         // combine them like ArchitectureSlice, carrying any downstream DISABLED
         // status through unchanged.
         boolean knowledgeEnabled = properties.getFeatures().getKnowledge().isEnabled();
-        DownstreamSlice rag = knowledgeEnabled ? fetchRag() : null;
-        DownstreamSlice wiki = knowledgeEnabled ? fetchWiki() : null;
+        CompletableFuture<DownstreamSlice> ragF = knowledgeEnabled ? supply(this::fetchRag) : null;
+        CompletableFuture<DownstreamSlice> wikiF = knowledgeEnabled ? supply(this::fetchWiki) : null;
+        DownstreamSlice rag = ragF == null ? null : ragF.join();
+        DownstreamSlice wiki = wikiF == null ? null : wikiF.join();
         SubState knowledge = knowledgeEnabled
                 ? knowledgeSubState(rag, wiki)
                 : disabledKnowledgeSubState();
