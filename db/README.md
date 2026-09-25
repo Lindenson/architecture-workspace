@@ -1,58 +1,57 @@
-# db — PostgreSQL schema (pgvector)
+# db/
 
-`init.sql` bootstraps the dedicated **`architecture_ai`** database. It backs two
-consumers:
+`init.sql` runs once, on a fresh Postgres volume, and installs **pgvector**.
+Nothing else.
 
-- **rag-mcp (MVP-3)** — the RAG corpus + vector store (`documents` → `chunks` →
-  `embeddings`).
-- **digital-twin-core knowledge store** — the governance tables
-  (`architecture_decisions`, `technical_debts`, `project_memory`).
+## Where the data actually lives
+
+| Thing | Where | Why not Postgres |
+|---|---|---|
+| RAG chunks + embeddings | table created by `VectorStore` at runtime | the `vector(N)` column depends on the configured embedding dimension, so the schema is not knowable before configuration |
+| ADRs | `architecture/adr/*.md` | reviewed in pull requests; a table row cannot be reviewed |
+| Technical debt | `quality/technical-debt/*.md` | same — and it carries an argument, not just a status |
+| Project memory | `project-memory/*.md` | append-only history that humans read and `rag-mcp` indexes |
 
 ## How it runs
 
-The script is mounted by `docker-compose.yml` into
-`/docker-entrypoint-initdb.d/init.sql` and runs **once** when the postgres data
-volume is first created. It is fully idempotent (`CREATE ... IF NOT EXISTS`), so
-you can also re-apply it by hand:
+`docker-compose.yml` mounts this file into
+`/docker-entrypoint-initdb.d/init.sql`, where Postgres runs it **once**, when
+the data volume is first created. It is idempotent, so it can also be applied by
+hand:
 
 ```bash
 psql "postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5432/$POSTGRES_DB" -f db/init.sql
 ```
 
-To re-run the auto-bootstrap from scratch:
-`docker compose down -v` (drops the volume), then `docker compose up -d postgres`.
+To re-run the bootstrap from scratch — dropping all RAG data with it:
 
-## Schema
+```bash
+docker compose down -v          # removes the volume
+docker compose up -d postgres
+```
 
-### RAG corpus
+## If you are upgrading
 
-| Table        | Purpose                                                            |
-|--------------|--------------------------------------------------------------------|
-| `documents`  | Source documents ingested from Git/Jira/Wiki/ADR/Sonar/manual.     |
-| `chunks`     | Chunked slices of a document — the retrieval unit (FK → documents).|
-| `embeddings` | `vector(1536)` embeddings per chunk per `model` (FK → chunks).     |
+Earlier versions of `init.sql` created six tables that no code ever touched:
+`documents`, `chunks`, `embeddings`, `architecture_decisions`,
+`technical_debts`, `project_memory`. They are harmless, but they are noise and
+they imply a storage model this platform does not use. To drop them:
 
-- `embeddings.embedding` is `vector(1536)` (sized for `text-embedding-3-small`;
-  change the dimension if you switch models — see `.env` `EMBEDDINGS_MODEL`).
-- An **ivfflat** index (`vector_cosine_ops`, `lists = 100`) accelerates cosine
-  similarity search. Run `ANALYZE embeddings;` after the first bulk load so the
-  planner uses the index well.
-- `documents (source, uri)` is unique to avoid re-ingesting the same document.
+```sql
+DROP TABLE IF EXISTS embeddings, chunks, documents,
+                     architecture_decisions, technical_debts, project_memory;
+```
 
-### Governance knowledge store
+Check first that nothing of yours depends on them — this repository does not.
 
-| Table                    | Purpose                                                   |
-|--------------------------|-----------------------------------------------------------|
-| `architecture_decisions` | ADRs mirrored from `architecture/adr/` (L2 truth).        |
-| `technical_debts`        | Tech-debt register, synthesized mainly from sonar-mcp.    |
-| `project_memory`         | Decision journal mirroring `project-memory/` (the "why"). |
+Note that the old schema declared `embeddings.embedding` as `vector(1536)`,
+sized for an OpenAI model, while the shipped default is the local ONNX provider
+at 384 dimensions. Nothing read the table, so the mismatch never surfaced. The
+live store takes its dimension from `rag.embeddings.dimension`, and
+`VectorStore.storedDimension()` reads it back from the catalog specifically so a
+disagreement between config and storage is reported rather than discovered.
 
-Cross-references between tables (`related_adr`, `related_jira`) are intentionally
-**soft links** (plain columns / JSONB), not hard FKs — the ADRs and Jira issues
-live in external systems of record, and the twin only mirrors them.
+## Rule
 
-## Secrets
-
-Connection credentials come from the repo-root `.env`
-(`POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_PORT`). No secret is
-stored here. See [`../config/README.md`](../config/README.md).
+Add a table here only together with the code that reads it, in the same commit.
+Schema nothing reads is drift, and drift is what this platform exists to detect.

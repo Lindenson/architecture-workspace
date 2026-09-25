@@ -239,11 +239,15 @@ public class VectorStore {
         if (chunks == null || chunks.isEmpty()) {
             return;
         }
-        ensureSchema();
+        // Validate the INPUT before touching the database. A caller error should
+        // not be reported as a schema failure, and it should not require a
+        // reachable Postgres to be detected — surfaced by VectorStoreTest, which
+        // runs without one.
         if (vectors != null && vectors.size() != chunks.size()) {
             throw new VectorStoreException(
                     "Embedding count " + vectors.size() + " does not match chunk count " + chunks.size());
         }
+        ensureSchema();
         String sql = """
                 INSERT INTO %s (source, ref, chunk_no, content, embedding, indexed_at)
                 VALUES (?, ?, ?, ?, ?::vector, now())
