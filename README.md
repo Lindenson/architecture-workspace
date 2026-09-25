@@ -471,16 +471,19 @@ moves, which is the failure mode this whole repository is about:
 - **RAG (MVP-3, measured at v1.x):** against Postgres+pgvector with **local ONNX embeddings**,
   reindexed **41 files → 84 chunks** and returned ranked, cited vector-search hits;
   with the layer off, the knowledge slice reports `DISABLED`.
-- **Behaviour (v2.0.1):** **38 behavioural tests** assert the guarantees this
+- **Behaviour (v2.0.1):** behavioural tests assert the guarantees this
   platform makes about itself — the `McpResponse` envelope (source, confidence,
   `DATA_STALE` vs `ERROR` vs `DISABLED`), the internal-token filter (wrong,
   same-length, prefix and non-Bearer tokens all rejected; `/actuator/health`
   exempt and only by prefix), the read-only Cypher guard (every write keyword
   rejected **before** the database is touched), the Jira write gate (off by
   default, every write operation refused as an answer rather than an exception),
-  and `VectorStore` (SQL-identifier validation, pgvector literal format,
-  chunk/vector count mismatch caught before any SQL). None of them needs a
-  running Neo4j, Postgres or Jira.
+  `VectorStore` (SQL-identifier validation, pgvector literal format,
+  chunk/vector count mismatch caught before any SQL), and the HTTP timeouts
+  (a deliberately hanging upstream must fail fast, not block forever). None of
+  them needs a running Neo4j, Postgres or Jira. CI fails if a guard loses its
+  test — the count is enforced there rather than quoted here, because a number
+  in a README goes stale the next time someone adds a test.
 - **Harness (MVP-4):** `./automation/verify-hooks.sh` runs **26 assertions**
   against the real hook scripts — phase ordering, the decisions gate, override
   logging, `block`/`warn`/`off` modes, loop-aware governance guard, drift
