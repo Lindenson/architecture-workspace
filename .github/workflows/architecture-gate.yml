@@ -34,7 +34,7 @@ jobs:
     name: Build MCP reactor
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v4
         with: { java-version: '21', distribution: 'temurin', cache: maven }
       - run: mvn -B -ntp verify
@@ -68,7 +68,7 @@ jobs:
     name: ArchUnit template compiles
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v4
         with: { java-version: '21', distribution: 'temurin', cache: maven }
       - run: mvn -B -ntp test
@@ -83,7 +83,7 @@ jobs:
     name: Documented tool names exist
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Every tool named in the agent contract is a real @Tool method
         run: |
           set -euo pipefail
@@ -124,7 +124,7 @@ jobs:
     name: Persistence layer has one name
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Every module names the persistence layer 'repository'
         run: |
           set -euo pipefail
@@ -144,7 +144,7 @@ jobs:
     name: C4 model validity
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate workspace.dsl
         run: |
           set -euo pipefail
@@ -157,7 +157,7 @@ jobs:
     name: Harness self-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Hooks behave as designed
         run: ./automation/verify-hooks.sh
       - name: Hooks are executable and parse
@@ -184,7 +184,7 @@ jobs:
     name: Governance contract integrity
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Required artifacts present
         run: |
@@ -281,7 +281,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: No OPEN rows in any decisions.md
         run: |
           set -euo pipefail
