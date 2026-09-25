@@ -3,7 +3,7 @@
   "mcpServers": {
     "digital-twin-core": {
       "type": "sse",
-      "url": "http://localhost:8080/sse",
+      "url": "http://localhost:8089/sse",
       "headers": {
         "Authorization": "Bearer ${AIP_INTERNAL_TOKEN}"
       }

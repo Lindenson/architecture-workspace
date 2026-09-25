@@ -2,7 +2,7 @@
 # ============================================================================
 #  health-check.sh — probe the MVP-1 MCP servers' actuator health
 # ----------------------------------------------------------------------------
-#  Curls /actuator/health on ports 8080-8083 and prints an UP/DOWN table.
+#  Curls /actuator/health on ports 8081-8089 and prints an UP/DOWN table.
 #  Degrades gracefully if curl is missing. Exit code is non-zero if any DOWN.
 # ============================================================================
 set -euo pipefail
@@ -18,7 +18,7 @@ fi
 
 # label:port
 TARGETS=(
-  "digital-twin-core:${PORT_DIGITAL_TWIN:-8080}"
+  "digital-twin-core:${PORT_DIGITAL_TWIN:-8089}"
   "jira-mcp:${PORT_JIRA_MCP:-8081}"
   "github-mcp:${PORT_GITHUB_MCP:-8082}"
   "sonar-mcp:${PORT_SONAR_MCP:-8083}"

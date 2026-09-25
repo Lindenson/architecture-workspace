@@ -48,7 +48,7 @@ require_cmd() {
 
 # --- Base URL resolution ----------------------------------------------------
 # Resolve each MCP server base URL from env with localhost defaults.
-aip_twin_url()   { echo "${PORT_DIGITAL_TWIN_URL:-http://localhost:${PORT_DIGITAL_TWIN:-8080}}"; }
+aip_twin_url()   { echo "${PORT_DIGITAL_TWIN_URL:-http://localhost:${PORT_DIGITAL_TWIN:-8089}}"; }
 aip_jira_url()   { echo "${PORT_JIRA_URL:-http://localhost:${PORT_JIRA_MCP:-8081}}"; }
 aip_github_url() { echo "${PORT_GITHUB_URL:-http://localhost:${PORT_GITHUB_MCP:-8082}}"; }
 aip_sonar_url()  { echo "${PORT_SONAR_URL:-http://localhost:${PORT_SONAR_MCP:-8083}}"; }
