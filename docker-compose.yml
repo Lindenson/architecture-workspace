@@ -281,7 +281,7 @@ services:
       - ./config:/config:ro
     command: ["java", "-jar", "/app/digital-twin-core.jar"]
     ports:
-      - "${PORT_DIGITAL_TWIN:-8080}:8080"
+      - "${PORT_DIGITAL_TWIN:-8089}:8080"
     depends_on:
       postgres:
         condition: service_healthy

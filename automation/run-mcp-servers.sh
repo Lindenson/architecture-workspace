@@ -26,7 +26,7 @@ MODULES=(
   "jira-mcp:8081"
   "github-mcp:8082"
   "sonar-mcp:8083"
-  "digital-twin-core:8080"
+  "digital-twin-core:8089"
 )
 
 # Pre-flight: ensure every jar exists before starting any.
