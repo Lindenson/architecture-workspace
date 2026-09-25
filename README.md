@@ -186,7 +186,7 @@ Breaking changes and migration: [`RELEASE-v2.md`](RELEASE-v2.md).
                          └───────────────┬───────────────┘
                                          │  MCP (SSE)
                          ┌───────────────▼───────────────┐
-                         │      digital-twin-core :8080   │  ← orchestrator
+                         │      digital-twin-core :8089   │  ← orchestrator
                          │  SHOW_PROJECT_STATE, RESCAN…   │
                          └───┬──────────┬──────────┬──────┘
                   /api/state │          │          │ /api/state
@@ -354,7 +354,7 @@ Secrets come from `.env` / `config/*.config.yml` (gitignored). See
 
 | Server             | Port | Status      | Source              | Contributes            |
 |--------------------|------|-------------|---------------------|------------------------|
-| `digital-twin-core`| 8080 | ✅ MVP-1    | orchestrator        | `DIGITAL_TWIN_MODEL`   |
+| `digital-twin-core`| 8089 | ✅ MVP-1    | orchestrator        | `DIGITAL_TWIN_MODEL`   |
 | `jira-mcp`         | 8081 | ✅ MVP-1    | Jira REST           | `DELIVERY_STATE`       |
 | `github-mcp`       | 8082 | ✅ MVP-1    | GitHub / GitLab REST| `CODE_STATE`           |
 | `sonar-mcp`        | 8083 | ✅ MVP-1    | SonarQube Web API   | `QUALITY_STATE`, debt  |

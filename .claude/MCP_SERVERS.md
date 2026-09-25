@@ -7,7 +7,7 @@ ${AIP_INTERNAL_TOKEN}`.
 
 | Server             | Port | Status      | Source                       | Outputs to twin            |
 |--------------------|------|-------------|------------------------------|----------------------------|
-| digital-twin-core  | 8080 | **MVP-1 ✅** | orchestrator (fan-out)       | DIGITAL_TWIN_MODEL         |
+| digital-twin-core  | 8089 | **MVP-1 ✅** | orchestrator (fan-out)       | DIGITAL_TWIN_MODEL         |
 | jira-mcp           | 8081 | **MVP-1 ✅** | Jira REST                    | DELIVERY_STATE             |
 | github-mcp         | 8082 | **MVP-1 ✅** | GitHub/GitLab REST           | CODE_STATE, CHANGESET_STATE|
 | sonar-mcp          | 8083 | **MVP-1 ✅** | SonarQube Web API            | QUALITY_STATE, DEBT_STATE  |
@@ -48,7 +48,7 @@ java -jar github-mcp/target/github-mcp.jar                  # :8082
 java -jar sonar-mcp/target/sonar-mcp.jar                    # :8083
 java -jar jqassistant-mcp/target/jqassistant-mcp.jar       # :8085 (needs Neo4j)
 java -jar structurizr-mcp/target/structurizr-mcp.jar       # :8084 (reads workspace.dsl)
-java -jar digital-twin-core/target/digital-twin-core.jar   # :8080
+java -jar digital-twin-core/target/digital-twin-core.jar   # :8089
 # Optional knowledge layer:
 java -jar rag-mcp/target/rag-mcp.jar                       # :8088 (needs Postgres+pgvector)
 java -jar wiki-mcp/target/wiki-mcp.jar                     # :8086 (Confluence)
