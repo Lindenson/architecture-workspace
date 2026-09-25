@@ -119,19 +119,17 @@ class VectorStoreTest {
     // ------------------------------------------------------------- liveness
 
     @Test
-    @DisplayName("isReachable never throws, whatever the database does")
+    @DisplayName("isReachable never throws, and answers false when there is no database")
     void is_reachable_never_throws() {
-        // Callers use this to choose between a normal and a DATA_STALE answer.
-        // An exception here would defeat the whole point of asking.
-        VectorStore vs = new VectorStore(new JdbcTemplate() {
-            @Override
-            public <T> T queryForObject(String sql, Class<T> type, Object... args) {
-                throw new IllegalStateException("Connection refused");
-            }
-        }, props("rag_chunks", 384));
+        // A JdbcTemplate with no DataSource is exactly the "database is not
+        // there" case. Callers use isReachable to choose between a normal and a
+        // DATA_STALE answer, so an exception here would defeat the point of
+        // asking — they would have to wrap the liveness check in a try/catch,
+        // and some caller eventually would not.
+        VectorStore vs = store("rag_chunks");
 
         assertDoesNotThrow(vs::isReachable);
-        assertFalse(vs.isReachable());
+        assertFalse(vs.isReachable(), "no DataSource means not reachable");
     }
 
     @Test

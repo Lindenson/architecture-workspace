@@ -84,7 +84,7 @@ class JqaServiceGuardTest {
 
         assertEquals(McpStatus.OK, r.status());
         assertNotNull(repo.lastCypher, "a read must actually be executed");
-        assertEquals("jqassistant-mcp", r.source());
+        assertEquals(JqaService.SOURCE, r.source());
     }
 
     // ------------------------------------------------------------ input guards
@@ -137,6 +137,23 @@ class JqaServiceGuardTest {
                 "a caller must not be able to change a query's parameters after it was issued");
     }
 
+    // ------------------------------------------------------------ attribution
+
+    @Test
+    @DisplayName("SOURCE names both the server and the upstream it speaks to")
+    void source_names_server_and_upstream() {
+        // The convention across all eight servers is "<server>:<upstream>"
+        // (jira-mcp:Jira REST v3, rag-mcp:pgvector, structurizr-mcp:workspace.dsl).
+        // It matters: when an answer is stale the architect needs to know WHICH
+        // upstream is down, not merely which tool reported it. Asserted here
+        // because a well-meaning "simplification" to just the server name would
+        // silently cost that, and nothing else would notice.
+        assertTrue(JqaService.SOURCE.startsWith("jqassistant-mcp"),
+                "the source must name the server that answered");
+        assertTrue(JqaService.SOURCE.contains(":"),
+                "the source must also name the upstream: <server>:<upstream>");
+    }
+
     // ------------------------------------------------------------- degradation
 
     @Test
@@ -154,7 +171,7 @@ class JqaServiceGuardTest {
 
         assertNotNull(r, "the tool must answer, never propagate the failure to the agent");
         assertNotEquals(McpStatus.OK, r.status());
-        assertEquals("jqassistant-mcp", r.source(),
+        assertEquals(JqaService.SOURCE, r.source(),
                 "even a failure is attributable — the agent reports which source is down");
     }
 }
