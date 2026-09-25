@@ -60,6 +60,47 @@ jobs:
           echo "::notice::To make it a real gate, copy it into a product repo, add that product as a"
           echo "::notice::dependency, set -Darchunit.base.package=<root> and remove the @Disabled annotations."
 
+  tool-names:
+    name: Documented tool names exist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every tool named in the agent contract is a real @Tool method
+        run: |
+          set -euo pipefail
+          # The contract once listed eight tools that did not exist
+          # (searchPR, generateDiagrams, runAnalysis, readReports, searchKnowledge,
+          # indexDocuments, linkIssue, updatePages). The agent calls what the
+          # contract says, so an invented name is a runtime failure the agent
+          # cannot diagnose. Humans cannot keep this in sync by reading; a machine can.
+          grep -rhoE 'public McpResponse [a-zA-Z]+\(' mcp-servers --include='*Service.java' \
+            | sed 's/public McpResponse //; s/(//' | sort -u > /tmp/real-tools.txt
+          echo "tools implemented: $(wc -l < /tmp/real-tools.txt)"
+
+          # Names the contract claims, taken from the backticked/bare lists in the
+          # two files that enumerate the tool surface.
+          # Skip lines that EXPLAIN a name does not exist ("There is no
+          # generateDiagrams: ..."). Those notes are the cure, not the disease —
+          # they stop the wrong name being reinvented by the next reader.
+          grep -hv -e 'There is no' -e 'no separate' -e 'was dropped' \
+            .claude/MCP_SERVERS.md .claude/BOOTSTRAP_ARCHITECT_AGENT.md \
+            | grep -oE '\b(get|read|list|search|analyze|extract|run|index|update|create|link|transition|add|find|query|detect|validate|generate|show|reindex|fetch|coverage|qualityGate|technicalDebt|codeSmells|securityIssues|dependenciesOf|dependentsOf|godClasses)[a-zA-Z]*\b' \
+            | sort -u > /tmp/claimed.txt
+
+          # Only check names that LOOK like tool calls (camelCase with a verb prefix)
+          # and are not ordinary English words used in prose.
+          fail=0
+          while read -r name; do
+            case "$name" in
+              get|read|list|search|analyze|extract|run|index|update|create|link|transition|add|find|query|detect|validate|generate|show|reindex|fetch) continue ;;
+            esac
+            printf '%s' "$name" | grep -qE '^[a-z]+[A-Z]' || continue
+            grep -qx "$name" /tmp/real-tools.txt || {
+              echo "::error::agent contract names a tool that does not exist: $name"; fail=1; }
+          done < /tmp/claimed.txt
+          [ $fail -eq 0 ] && echo "every documented tool name resolves to an implementation"
+          exit $fail
+
   layer-naming:
     name: Persistence layer has one name
     runs-on: ubuntu-latest

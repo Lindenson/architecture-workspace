@@ -60,12 +60,19 @@ docker compose up -d                              # postgres, neo4j, MVP-1 + MVP
 docker compose --profile knowledge up -d          # + optional rag-mcp & wiki-mcp
 ```
 
-## Tool surface (MVP-1)
-- **jira-mcp:** searchIssues, getIssue, getEpics, transitionIssue, createIssue,
-  updateIssue, linkIssue, linkToArchitecture *(writes gated by `jira.write-enabled`)*
+## Tool surface
+<!-- VERIFIED AGAINST THE CODE. Every name below is a @Tool method in
+     mcp-servers/*/service/*Service.java. CI enforces this (job:
+     "Documented tool names exist"). An invented name here makes the agent call
+     something that does not exist and fail without understanding why. -->
+- **jira-mcp:** searchIssues, getIssue, getEpics, getIssuesForEpic, getTransitions,
+  transitionIssue, createIssue, updateIssue, addComment, linkIssues, getState
+  *(writes gated by `jira.write-enabled`)*
 - **github-mcp:** readRepository, repoSnapshot, readCommits, readBranches, readTags,
-  searchPR, analyzePR, extractChangesets
-- **sonar-mcp:** qualityGate, technicalDebt, codeSmells, securityIssues, coverage, fetchReport
+  searchPullRequests, analyzePullRequest, extractChangesets, getState
+  *(GitLab is served by this same server — there is no separate gitlab-mcp)*
+- **sonar-mcp:** qualityGate, technicalDebt, codeSmells, securityIssues, coverage,
+  fetchReport, getState
 - **jqassistant-mcp:** queryGraph (read-only Cypher), findCycles, findLayeringViolations,
   dependenciesOf, dependentsOf (blast radius), godClasses, runScan, getState
 - **structurizr-mcp:** readWorkspace, validateModel, listElements, listRelationships,
