@@ -79,8 +79,10 @@ converge → after_converge → PR → independent review → ⟨HUMAN⟩ → me
 `architecture-drift-analysis` (did code and model diverge — and it clears the
 drift flag when the scan is complete) · `decision-capture` (the answered
 `decisions.md` rows become durable memory) · `tech-debt-delta` (what this feature
-closed, created or deferred) · `knowledge-reindex` (make it retrievable next
-session — optional, needs the knowledge layer on).
+closed, created or deferred) · `traceability-matrix` (every requirement walked
+to its task, commit, component, ADR and test — and the ones missing any of
+them) · `knowledge-reindex` (make it retrievable next session — optional, needs
+the knowledge layer on).
 
 If a phase artifact is missing, produce it — do not skip ahead. A blocked hook
 is information, not an obstacle to route around.

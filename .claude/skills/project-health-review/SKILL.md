@@ -39,8 +39,27 @@ rather than presenting a position as a direction.
    `DEBT_STATE`, `DELIVERY_STATE`, `KNOWLEDGE_STATE`.
 2. Score each domain (health + trend); note finance/document-processing hotspots
    (e.g. reconciliation reliability, ingestion throughput, PII/PCI posture).
-3. Consolidate the top risks across domains and rank them.
-4. Summarize with explicit confidence per domain (degraded where an MCP
+3. **Sweep the revisit conditions in `project-memory/`.** Every entry carries a
+   `Revisit when` line — the condition that would make that decision wrong: a
+   load threshold, a deprecation, a team-size change, a date. Nobody checks
+   them, which is how a decision that was right in March quietly becomes the
+   reason something is broken in November.
+
+   For each entry, compare its condition against the state you just gathered:
+   - **Condition met** → list the decision as due for review, with the entry,
+     the condition, and the measurement that now satisfies it. This is a
+     finding, not a task: whether to actually revisit is the architect's call.
+   - **Condition approaching** (within reach of the current trend) → mention it
+     once, without alarm.
+   - **No `Revisit when` recorded** → count these. A memory where most entries
+     have no expiry condition is a memory that can only grow, never be pruned;
+     report the count so the gap is visible.
+
+   Nothing here is ever edited. Memory is append-only; a revisited decision
+   becomes a new entry that supersedes the old one, written by whoever makes it.
+
+4. Consolidate the top risks across domains and rank them.
+5. Summarize with explicit confidence per domain (degraded where an MCP
    is offline).
 
 ## Output (contract)
@@ -51,6 +70,15 @@ rather than presenting a position as a direction.
 - **Top risks + Recommendations**: Problem · Evidence · Impact · Recommendation ·
   Priority · Related ADR · Related Jira · Related Components
 - Deliverable: Project Health Snapshot in `reports/`.
+
+```markdown
+## Decisions due for review
+| Entry | Decided | Revisit condition | Why it is met now |
+| project-memory/2026-05-20-rejected-mongodb.md | 2026-05-20 | "if document volume exceeds 50M" | volume is 61M as of this scan |
+
+Approaching: ...
+Entries with no revisit condition recorded: N of M
+```
 
 ## Guardrails
 Read/report only. Escalate any critical signal (drift, ADR violation, Quality

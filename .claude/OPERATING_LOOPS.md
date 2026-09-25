@@ -160,6 +160,25 @@ and every block can be overridden with `AIP_GATE_OVERRIDE="<reason>"`, which is
 always allowed and always logged. A gate that is wrong once and cannot be
 bypassed gets deleted — along with the cases where it was right.
 
+### Definition of Done — demonstrated, not ticked
+
+A checklist a human ticks proves that a human ticked it.
+`traceability-matrix` produces `specs/<feature>/traceability.md`: every
+requirement walked to its task, commit, component in the graph, binding ADR and
+the test that names it — and, more usefully, every requirement that is missing
+one of those.
+
+Three findings are worth the whole artifact:
+- a requirement implemented with **no test that names it** (a test that does not
+  say what it protects will not survive the next refactor);
+- a **task with no requirement** — scope nobody asked for;
+- a change that landed **outside the blast radius `impact.md` predicted**,
+  which means either the impact analysis was wrong or the implementation went
+  somewhere it was not meant to. Both are worth knowing before the merge.
+
+The matrix travels into the PR. CI fails a merge where a requirement has no
+test at all.
+
 ### J3 — Feedback (B → A), after convergence
 
 Loop B does not update the architecture model. It emits a delta and Loop A
@@ -173,10 +192,11 @@ hooks:
     - architecture-drift-analysis   # did code and model diverge?
     - decision-capture              # what was decided, and why
     - tech-debt-delta               # what debt was closed / created
+    - traceability-matrix           # REQ -> task -> commit -> component -> ADR -> test
     - knowledge-reindex             # make it findable next session (optional)
 ```
 
-All four exist as skills under `.claude/skills/`. The entry format above is read
+All five exist as skills under `.claude/skills/`. The entry format above is read
 from `.specify/extensions.yml` by Spec Kit after `converge`; verify the exact
 schema your Spec Kit version expects before relying on it —
 `integration/README.md` says how.
@@ -193,6 +213,20 @@ retrieves the entries relevant to the active feature (from
 
 This is what makes a new session continue work instead of asking
 "what were we doing?".
+
+**Memory that never objects is an archive.** `project-memory/` holds `rejected`
+and `accepted trade-off` entries as well as adopted ones — the expensive half,
+because ADRs record what was chosen and only memory records what was considered
+and turned down. So `spec-critic` runs an explicit contradiction check: if a
+spec proposes something a prior entry rejected, it raises a Critical Issue
+citing that entry and asks what changed. Reversing an old decision is
+legitimate and often right; reversing it *without noticing* is not.
+
+Every entry also carries a `Revisit when` condition — the thing that would make
+that decision wrong. `project-health-review` sweeps those monthly against the
+current state of the twin and lists the decisions whose condition has now come
+true. Without that sweep the field is decoration; with it, memory expires on
+purpose instead of quietly going stale.
 
 ---
 
