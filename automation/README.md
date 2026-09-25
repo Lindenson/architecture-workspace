@@ -17,7 +17,7 @@ Bash automation for the AIP MVP-1 layer. All scripts:
 | `nightly-pipeline.sh`   | Nightly chain, each stage isolated (failure logs & continues): (1) jQAssistant scan [MVP-2, skipped unless `jqassistant` on PATH]; (2) Sonar refresh via `sonar-mcp /api/sonar/state`; (3) Structurizr update [MVP-2]; (4) RAG reindex [MVP-3]; (5) reports (DAILY nightly, WEEKLY on Sundays). |
 | `run-mcp-servers.sh`    | Start the 4 MVP-1 jars in the background (`java -jar mcp-servers/<m>/target/<m>.jar`); PIDs → `automation/.pids`, logs → `automation/logs/`. Checks jars exist first. |
 | `stop-mcp-servers.sh`   | Stop the processes recorded in `automation/.pids` (TERM, then KILL stragglers). |
-| `health-check.sh`       | Curl `/actuator/health` on 8080-8083, print an UP/DOWN table. Non-zero exit if any DOWN. |
+| `health-check.sh`       | Curl `/actuator/health` on 8081-8089, print an UP/DOWN table. Non-zero exit if any DOWN. |
 
 `.pids` and `logs/` are runtime artifacts created by `run-mcp-servers.sh`.
 

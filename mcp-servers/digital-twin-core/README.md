@@ -159,7 +159,7 @@ from config/env — never hardcoded.
 Optional config file: `${AIP_CONFIG_DIR:./config}/digital-twin.config.yml`
 (also `../config/digital-twin.config.yml`).
 
-Server port: **8080**. Actuator: `health`, `info`.
+Server port: **8089** (container-internal 8080). Actuator: `health`, `info`.
 
 ## Run
 
