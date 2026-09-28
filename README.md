@@ -269,7 +269,7 @@ architecture-workspace/
 ├── automation/           Nightly pipeline, scan scripts, harness self-test & metrics
 ├── specs/                Loop B artifacts (spec · impact · decisions · critique · gate-log)
 ├── config/              Credential templates (real files gitignored)
-├── jqassistant/          Scan rules & reports — MVP-2
+├── jqassistant/          Scan rules (constraints as Cypher) + generated reports
 ├── mcp-servers/          Java Spring Boot MCP servers (Maven reactor)
 │   ├── mcp-common/         Shared MCP protocol layer + auth + REST client factory
 │   ├── jira-mcp/           Delivery source        (MVP-1)
@@ -325,14 +325,30 @@ cd mcp-servers && mvn -DskipTests package && cd ..
 ./automation/run-mcp-servers.sh        # or: docker compose up -d
 ./automation/health-check.sh           # verify the servers are UP
 
-# 5. Open this folder in Claude — .mcp.json wires the servers automatically.
+# 5. FILL THE DEPENDENCY GRAPH — skip this and the platform answers about nothing
+sdk install jqassistant                # or see jqassistant.org for the zip
+./automation/scan-graph.sh             # no argument = scan this repo's own servers
+
+# 6. Open this folder in Claude — .mcp.json wires the servers automatically.
 ```
+
+**Step 5 is not optional.** Until it runs, Neo4j is empty and every graph-backed
+answer — blast radius, cycles, layering violations, `feature-impact-analysis` —
+is truthful about nothing. The script scans this repository's own MCP servers by
+default, which needs no credentials and proves the whole chain before you point
+it at a product. Expect roughly 560 types; it fails loudly if the graph ends up
+empty rather than reporting success over a scan that recorded nothing.
 
 Then ask the agent:
 
 ```
 SHOW PROJECT STATE
 ```
+
+A first run with only step 5 done returns `OK` for architecture and
+`DATA_STALE` for Jira, GitHub and Sonar — they are still pointed at the
+placeholders in `.env.example`. That is the system reporting its real condition,
+not a failure. [`ONBOARDING.md`](ONBOARDING.md) takes it from there.
 
 ### Enabling the optional knowledge layer (RAG + Wiki)
 
@@ -493,6 +509,13 @@ moves, which is the failure mode this whole repository is about:
   with it), and expose `/actuator/health`.
 - **Resilience:** every server boots and degrades gracefully when its upstream is
   down (Jira/GitHub/Sonar/Neo4j/Postgres unreachable → `DATA_STALE`, never a crash).
+- **Graph (measured at v2.2.0, on this repository):** `automation/scan-graph.sh`
+  populated Neo4j with **562 types, 116 packages, 1412 dependencies**, zero
+  cycles and zero layering violations. `dependentsOf` on `McpResponse` returned
+  the 17 services and controllers that really depend on it — a measured blast
+  radius, not an inference from package structure. All four constraints in
+  `jqassistant/rules/` executed; one found nine classes with fan-out 31-49 and
+  is recorded as a finding rather than a build failure.
 - **Architecture (MVP-2, measured at v1.x):** structurizr-mcp parsed the real `workspace.dsl`
   (1 system, 7 containers, 4 components, 19 relationships, 3 views).
 - **RAG (MVP-3, measured at v1.x):** against Postgres+pgvector with **local ONNX embeddings**,
