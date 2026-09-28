@@ -1,0 +1,5 @@
+jqassistant:
+  store:
+    uri: bolt://localhost:7687
+    username: neo4j
+    password: change-me-neo4j-password
