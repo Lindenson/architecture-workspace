@@ -6,13 +6,23 @@
   rule below names the document it enforces, so when one changes the other is
   obviously due.
 
+  SCHEMA VERSION must match the jQAssistant release: 2.9.x expects
+  http://schema.jqassistant.org/rule/v2.9. With the wrong namespace the file is
+  read without error and NO rule is executed — "No concepts or constraints were
+  executed" is the only sign, and it is a WARNING.
+
+  GROUPS must be selected in .jqassistant.yml under `analyze.groups` (a sibling
+  of `analyze.rule`, not a child). Without it only the `default` group runs, so
+  a correctly-parsed rule set still executes nothing. There is no -groups flag
+  in 2.9.1.
+
   PARAMETERISE BEFORE USE. The package patterns default to this repository's own
   layout (com.wolper.aip.*). Pointing the platform at a product means changing
   them — see ONBOARDING.md. A constraint whose pattern matches nothing PASSES,
   silently, which is exactly how the ArchUnit layer rule in this repo enforced
   nothing for months.
 -->
-<jqassistant-rules xmlns="http://schema.jqassistant.org/rule/v1.10"
+<jqassistant-rules xmlns="http://schema.jqassistant.org/rule/v2.9"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
     <!-- ===================================================== concepts ===== -->
@@ -94,20 +104,47 @@
             to your own context roots.
         </description>
         <cypher><![CDATA[
+            // Compare the BOUNDED CONTEXT segment, which for this layout is the
+            // one after the package root: com.wolper.aip.<context>.<layer>...
+            //
+            // The first version of this rule used
+            //   split(t.fqn, '.repository.')[0] <> split(p.fqn, '.repository.')[0]
+            // which is wrong: split() on a string that does NOT contain the
+            // separator returns the whole string, so an accessor was always
+            // compared against a value it could never equal. It reported every
+            // service reaching its OWN repository as a cross-context violation —
+            // four false positives on first run, and it would have reported them
+            // forever without anyone doubting a MAJOR constraint.
+            //
+            // $contextDepth is the 0-based index of the context segment.
+            // com.wolper.aip.jqa.service.JqaService -> index 3 = "jqa".
+            // Change it for your own package root before trusting this rule.
             MATCH (t:Type)-[:DEPENDS_ON]->(p:Persistence)
             WHERE NOT t:Persistence
-              AND split(t.fqn, '.repository.')[0] <> split(p.fqn, '.repository.')[0]
               AND t.fqn =~ '.*\\.(service|api)\\..*'
+            WITH t, p,
+                 split(t.fqn, '.') AS accessorParts,
+                 split(p.fqn, '.') AS repoParts
+            WHERE size(accessorParts) > 3 AND size(repoParts) > 3
+              AND accessorParts[3] <> repoParts[3]
             RETURN t.fqn AS accessor, p.fqn AS foreignRepository
         ]]></cypher>
     </constraint>
 
-    <constraint id="aip:NoGodClasses">
+    <constraint id="aip:NoGodClasses" severity="minor">
         <description>
             Types with an unusually large number of outgoing dependencies. Not an
             error by itself — a finding. A class that depends on thirty others is
             usually several classes that were never separated, and it is the one
             that breaks whenever anything changes.
+
+            SEVERITY IS MINOR ON PURPOSE. The threshold below is a judgement, not
+            a fact: on first run against this repository it flagged nine classes
+            with fan-out 31-49, all of them orchestrators and API clients that
+            legitimately touch many types. A MAJOR that fires on normal code
+            teaches people to ignore MAJOR. Raise the threshold, or accept the
+            finding as debt — but do not let it fail a build until you have
+            decided which.
         </description>
         <cypher><![CDATA[
             MATCH (t:Type)-[:DEPENDS_ON]->(other:Type)

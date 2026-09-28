@@ -108,6 +108,25 @@ scan_one() {
   return 0
 }
 
+# ------------------------------------------------- start from a clean graph
+# jQAssistant APPENDS to the store. Two consecutive scans of this repository
+# produced 562 then 1124 types — the same classes counted twice, with every
+# dependency count, cycle count and blast radius doubling alongside. Nothing
+# failed; the numbers just quietly stopped meaning anything.
+#
+# Set AIP_KEEP_GRAPH=true to scan several repositories into one graph, which is
+# the legitimate case: run the first without it, the rest with.
+if [[ "${AIP_KEEP_GRAPH:-false}" != "true" ]]; then
+  log "Clearing the graph first (AIP_KEEP_GRAPH=true to append instead)"
+  if command -v curl >/dev/null 2>&1; then
+    curl -s --max-time 30 -X POST "${NEO4J_HTTP_URL:-http://localhost:7474}/db/neo4j/tx/commit" \
+      -H 'Content-Type: application/json' \
+      ${NEO4J_PASSWORD:+-u "${NEO4J_USER:-neo4j}:$NEO4J_PASSWORD"} \
+      -d '{"statements":[{"statement":"MATCH (n) DETACH DELETE n"}]}' >/dev/null 2>&1 \
+      || warn "could not clear the graph — counts may be inflated by a previous run"
+  fi
+fi
+
 failed=0
 for t in "${targets[@]}"; do
   scan_one "$t" || failed=1
@@ -116,7 +135,36 @@ done
 # ---------------------------------------------------------------- analyze
 if [[ -d "$RULES_DIR" ]] && compgen -G "$RULES_DIR/*" >/dev/null; then
   log "Analyzing with rules from ${RULES_DIR#"$ROOT"/}"
-  jqassistant analyze -Djqassistant.analyze.rule.directory="$RULES_DIR" || warn "analyze reported violations or failed — see output above"
+  # The rule directory and group live in .jqassistant.yml, not on the command
+  # line: 2.9.1 has neither -rule-directory nor -groups.
+  #
+  # A CONSTRAINT VIOLATION IS NOT A CRASH. jQAssistant exits non-zero for both
+  # "the rules found something" and "I could not run", and treating them alike
+  # means either a broken analyzer looks like a finding, or a real finding is
+  # dismissed as a tooling problem. Distinguish them by what it printed.
+  analyze_output="$(jqassistant analyze 2>&1)"
+  analyze_rc=$?
+  printf '%s\n' "$analyze_output"
+
+  if [[ $analyze_rc -ne 0 ]]; then
+    if printf '%s' "$analyze_output" | grep -q 'Constraint Violation'; then
+      violations="$(printf '%s' "$analyze_output" | grep -c 'Constraint: ')"
+      warn "$violations constraint(s) violated — this is a FINDING, not a failure."
+      warn "Read them above, then decide: fix the code, or fix the rule if it is wrong."
+    else
+      err "analyze FAILED to run — the rules did not execute."
+      err "Common causes: wrong schema namespace in the rule file (2.9.x wants"
+      err "rule/v2.9), or analyze.groups missing from .jqassistant.yml."
+      failed=1
+    fi
+  elif printf '%s' "$analyze_output" | grep -q 'No concepts or constraints were executed'; then
+    # Exit code 0 with nothing executed is the worst outcome of the three: it
+    # looks like a clean result and is an empty one.
+    err "analyze ran but executed NO rules — a clean result here is meaningless."
+    err "Check analyze.groups in .jqassistant.yml (sibling of analyze.rule) and"
+    err "the schema namespace in the rule file."
+    failed=1
+  fi
 else
   warn "No rules in ${RULES_DIR#"$ROOT"/} — running concept extraction only."
   warn "Constraints in architecture/constraints/ have no machine counterpart until rules exist."

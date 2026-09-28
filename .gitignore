@@ -88,3 +88,4 @@ Thumbs.db
 .claude/.drift-pending
 .claude/.drift-pending.tmp
 reports/drift/.scanned
+jqassistant/report/

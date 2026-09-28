@@ -94,12 +94,30 @@ $EDITOR jqassistant/rules/aip-constraints.xml
 The package patterns default to this repository's own layout. A constraint whose
 pattern matches nothing **passes silently** — that is exactly how the ArchUnit
 layer rule in this repo enforced nothing for months while looking like
-governance. After editing, confirm each concept matches something:
+governance. Rules run only if `.jqassistant.yml` selects their group:
+
+```yaml
+jqassistant:
+  analyze:
+    groups: [aip:default]      # SIBLING of `rule`, not a child
+    rule:
+      directory: jqassistant/rules
+```
+
+Nested under `rule` it is ignored, only the `default` group runs, and a
+perfectly valid rule set executes nothing. The sole symptom is a WARNING:
+`No concepts or constraints were executed`. There is no `-groups` flag in
+2.9.1 to override it with, and the schema namespace must match the release
+(`rule/v2.9` for 2.9.x) or the file is read without error and produces nothing.
+
+Confirm rules actually ran:
 
 ```bash
-jqassistant analyze -rule-directory jqassistant/rules
-# every concept should report a non-zero count
+jqassistant analyze 2>&1 | grep -E "Applying concept|Validating constraint"
 ```
+
+Expect one line per rule. A violation makes `analyze` exit non-zero — that is a
+FINDING, not a failure, and `scan-graph.sh` now tells the two apart.
 
 ---
 
