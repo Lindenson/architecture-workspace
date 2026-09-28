@@ -1,5 +1,37 @@
+<<<<<<< ours
 jqassistant:
   store:
     uri: bolt://localhost:7687
     username: neo4j
     password: change-me-neo4j-password
+=======
+# jQAssistant configuration for scanning into the Neo4j container.
+#
+# WITHOUT THIS FILE the CLI writes to its own EMBEDDED store, the scan reports
+# success, and the graph the MCP server reads stays empty. Nothing fails; the
+# platform simply answers truthfully about nothing.
+#
+# Kept in the repository on purpose: it is not a personal preference, it is the
+# difference between a working install and a silent one.
+
+jqassistant:
+  store:
+    uri: bolt://localhost:7687
+    # Credentials are omitted deliberately.
+    #
+    # jQAssistant 2.9.1 does not reliably pick up store credentials from this
+    # file OR from -Djqassistant.store.password — it sends an empty token and
+    # the driver fails with:
+    #
+    #     Unsupported authentication token, scheme 'none' is only allowed
+    #     when auth is disabled
+    #
+    # The working configuration is therefore NEO4J_AUTH=none on a Neo4j that
+    # listens on localhost only, which is what docker-compose.yml sets for
+    # local development. Do NOT copy that to anything reachable from a network.
+    #
+    # If your Neo4j does require auth, uncomment and fill these, and expect to
+    # verify that this version honours them:
+    # username: neo4j
+    # password: your-password
+>>>>>>> theirs

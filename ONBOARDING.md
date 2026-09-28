@@ -18,9 +18,22 @@ product access, and gives you a non-empty graph in two minutes. If something is
 broken, you find out here rather than while debugging your own project.
 
 ```bash
+sdk install jqassistant                      # or see jqassistant.org for the zip
 cd mcp-servers && mvn -B package -DskipTests && cd ..
-automation/scan-graph.sh                    # no argument = scan ourselves
+automation/scan-graph.sh                     # no argument = scan ourselves
 ```
+
+`mvn package` rather than `compile` is deliberate: the scan reads **jars**, not
+`target/classes`. Pointed at a class directory, jQAssistant walks it with the
+generic file scanner, records `:File` and `:Directory` nodes, finds no types at
+all — and reports success. The script scans `target/*.jar.original` (the plain
+jar Spring Boot renames during repackage, holding only your classes, not the
+36k types inside a fat jar) and stages each one under a `.jar` name, because
+the CLI dispatches on file extension and scans an `.original` file silently
+into nothing.
+
+Expect a few hundred types. If you get zero, the script now says so and fails
+rather than completing quietly.
 
 The script verifies the graph is non-empty rather than trusting the scanner's
 exit code — a scan that "succeeds" and leaves an empty store is the failure this

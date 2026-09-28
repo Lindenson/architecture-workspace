@@ -21,7 +21,8 @@ services:
 
   # --- PostgreSQL + pgvector: Digital Twin store + RAG vector store ---------
   postgres:
-    image: pgvector/pgvector:pg16
+    # Pinned: `pg16` still floats on every patch release.
+    image: pgvector/pgvector:${PGVECTOR_IMAGE_TAG:-0.8.0-pg16}
     container_name: aip-postgres
     restart: unless-stopped
     environment:
@@ -42,15 +43,47 @@ services:
 
   # --- Neo4j: jQAssistant architecture graph (MVP-2) ------------------------
   neo4j:
-    image: neo4j:5-community
+    # Pinned. `5-community` floated to 5.26.29 and stopped starting; an
+    # unpinned tag is an unannounced upgrade of something you depend on.
+    image: neo4j:${NEO4J_IMAGE_TAG:-5.26.29-community}
     container_name: aip-neo4j
-    restart: unless-stopped
+    # max-attempts stops a broken service from restarting silently for days.
+    # After the limit it stays down, which is visible in `docker compose ps`.
+    restart: on-failure:5
     environment:
-      # NEO4J_AUTH expects the "user/password" form.
-      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-change-me-neo4j-password}
+      # LOCAL DEVELOPMENT DEFAULT: authentication off.
+      #
+      # Not laziness — jQAssistant 2.9.1 does not reliably pass store
+      # credentials, from .jqassistant.yml or from -D properties: it sends an
+      # empty token and the driver rejects it. With auth on, the graph cannot
+      # be populated at all, which disables the most precise source this
+      # platform has.
+      #
+      # Safe here because Neo4j publishes to 127.0.0.1 only and the MCP servers
+      # reach it over the compose network. Set NEO4J_AUTH=neo4j/<password> for
+      # anything reachable from a network — and then expect to scan the graph
+      # from inside the network, not with the CLI.
+      NEO4J_AUTH: ${NEO4J_AUTH:-none}
+      # REQUIRED as of neo4j 5.26.29. The image entrypoint writes
+      # `server.directories.logs` into the config, and the server then refuses
+      # to start because it no longer declares that setting:
+      #
+      #     Failed to read config: Unrecognized setting. No declared setting
+      #     with name: server.directories.logs
+      #
+      # The container died one second after start, exit code 1, before anything
+      # reached the log — and `restart: unless-stopped` retried it 177 times in
+      # two days while nobody noticed. Upstream image bug, not a local one.
+      NEO4J_server_config_strict__validation_enabled: "false"
+      # Bounded heap: the default sizes itself from host RAM, which on a machine
+      # already running eight JVMs is generous to the point of rude.
+      NEO4J_server_memory_heap_initial__size: ${NEO4J_HEAP:-512m}
+      NEO4J_server_memory_heap_max__size: ${NEO4J_HEAP:-512m}
+      NEO4J_server_memory_pagecache_size: ${NEO4J_PAGECACHE:-512m}
     ports:
-      - "7474:7474"   # HTTP browser
-      - "7687:7687"   # Bolt
+      # Bound to loopback: with auth off this must not be reachable from the LAN.
+      - "127.0.0.1:7474:7474"   # HTTP browser
+      - "127.0.0.1:7687:7687"   # Bolt
     volumes:
       - neo4j-data:/data
     healthcheck:
@@ -280,6 +313,15 @@ services:
       - ./mcp-servers/digital-twin-core/target:/app
       - ./config:/config:ro
     command: ["java", "-jar", "/app/digital-twin-core.jar"]
+    healthcheck:
+      # The orchestrator was the ONLY one of nine containers without a
+      # healthcheck, so `docker compose ps` showed it Up while it was
+      # answering on the wrong port and nothing was watching.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
     ports:
       - "${PORT_DIGITAL_TWIN:-8089}:8080"
     depends_on:

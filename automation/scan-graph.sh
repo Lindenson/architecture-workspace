@@ -44,25 +44,66 @@ if [[ ${#targets[@]} -eq 0 ]]; then
   targets=("$ROOT/mcp-servers")
 fi
 
+# Staging directory: scanned artifacts are copied here under a .jar name.
+# See scan_one() for why that copy is not optional.
+STAGE="$(mktemp -d -t aip-scan-XXXXXX)"
+trap 'rm -rf "$STAGE"' EXIT
+
 scan_one() {
   local target="$1"
   [[ -d "$target" ]] || { warn "not a directory, skipping: $target"; return 1; }
 
-  # Bytecode, not sources: jQAssistant reads compiled classes, so an unbuilt
-  # project produces an empty graph and no error. Build first, and say so.
-  local classes
-  mapfile -t classes < <(find "$target" -type d -path '*/target/classes' 2>/dev/null)
-  if [[ ${#classes[@]} -eq 0 ]]; then
-    warn "No */target/classes under $target — nothing compiled."
-    warn "Build it first (mvn -B package -DskipTests), then re-run."
-    warn "Scanning sources instead of bytecode is not possible: the graph is built from class files."
+  # WHAT TO SCAN, AND WHY IT IS NOT target/classes
+  #
+  # jQAssistant picks its scanner plugin by FILE EXTENSION. Pointed at a
+  # target/classes DIRECTORY it walks the tree with the generic file scanner and
+  # records :File and :Directory nodes — no :Type, no :Package, no :DEPENDS_ON —
+  # and reports success. That is how this script "completed" against an empty
+  # graph: 562 classes on disk, 0 types in Neo4j, exit code 0.
+  #
+  # Nor the Spring Boot fat jar: target/<module>.jar after repackage contains
+  # every dependency, so scanning it yields ~36k types of which a few hundred
+  # are yours. A blast radius computed over Spring and Netty is noise.
+  #
+  # The right artifact is target/<module>.jar.original — the plain jar Spring
+  # Boot renames during repackage, holding only the module's own classes. But
+  # jQAssistant does not recognise the `.original` extension and silently scans
+  # NOTHING: no "Entering", no "Leaving", no error. Hence the copy to
+  # "<module>.jar" below. It looks superfluous; it is the whole fix.
+  local jars=()
+  mapfile -t jars < <(find "$target" -type f -path '*/target/*.jar.original' 2>/dev/null)
+
+  if [[ ${#jars[@]} -eq 0 ]]; then
+    # Non-Spring-Boot projects have no .jar.original; a plain jar is correct there.
+    mapfile -t jars < <(find "$target" -type f -path '*/target/*.jar' \
+                          ! -name '*-sources.jar' ! -name '*-javadoc.jar' 2>/dev/null)
+  fi
+
+  if [[ ${#jars[@]} -eq 0 ]]; then
+    warn "No jars under $target/*/target — nothing packaged."
+    warn "Run 'mvn -B package -DskipTests' first: jQAssistant reads bytecode, not sources."
+    warn "A missing build scans to an empty graph WITHOUT failing, which is why this stops here."
     return 1
   fi
 
-  log "Scanning ${#classes[@]} output director(ies) under $target"
-  for dir in "${classes[@]}"; do
-    log "  scan $dir"
-    jqassistant scan -f "$dir" || { err "scan failed: $dir"; return 1; }
+  log "Scanning ${#jars[@]} artifact(s) under $target"
+  for jar in "${jars[@]}"; do
+    local module staged
+    module="$(basename "$(dirname "$(dirname "$jar")")")"
+    staged="$STAGE/${module}.jar"
+    cp "$jar" "$staged" || { err "could not stage $jar"; return 1; }
+
+    log "  scan $module  (${jar#"$ROOT"/})"
+    local output
+    output="$(jqassistant scan -f "$staged" 2>&1)" || { err "scan failed: $jar"; return 1; }
+
+    # A scan that entered nothing produced nothing. Catch it here rather than at
+    # the final count, where it is one number among several and easy to miss.
+    if ! printf '%s' "$output" | grep -q 'Leaving'; then
+      err "scan of $module entered no archive — jQAssistant did not recognise it."
+      err "Check the artifact is a real jar: unzip -l $jar | head"
+      return 1
+    fi
   done
   return 0
 }
@@ -75,7 +116,7 @@ done
 # ---------------------------------------------------------------- analyze
 if [[ -d "$RULES_DIR" ]] && compgen -G "$RULES_DIR/*" >/dev/null; then
   log "Analyzing with rules from ${RULES_DIR#"$ROOT"/}"
-  jqassistant analyze -rule-directory "$RULES_DIR" || warn "analyze reported violations or failed — see output above"
+  jqassistant analyze -Djqassistant.analyze.rule.directory="$RULES_DIR" || warn "analyze reported violations or failed — see output above"
 else
   warn "No rules in ${RULES_DIR#"$ROOT"/} — running concept extraction only."
   warn "Constraints in architecture/constraints/ have no machine counterpart until rules exist."
@@ -86,20 +127,37 @@ fi
 # A scan that "succeeded" and left an empty graph is the failure mode this
 # whole script exists to prevent, so check rather than trust the exit code.
 log "Verifying the graph is actually populated"
-if require_cmd cypher-shell >/dev/null 2>&1; then
-  count=$(cypher-shell -a "$NEO4J_URI" -u "$NEO4J_USER" -p "$NEO4J_PASSWORD" \
-            --format plain "MATCH (t:Type) RETURN count(t) AS n" 2>/dev/null | tail -1 | tr -d ' ')
-  if [[ "${count:-0}" -gt 0 ]]; then
-    log "Graph contains $count types."
-  else
-    err "Graph is EMPTY after a scan that reported success."
-    err "Most likely the scanned directories held no .class files, or jqassistant"
-    err "is writing to a different store than \$NEO4J_URI points at."
-    failed=1
-  fi
+
+# Over HTTP, not cypher-shell. cypher-shell is a separate install that most
+# people do not have, so the old check degraded to a WARNING — and a scan that
+# silently recorded zero types sailed past it reporting success. The HTTP
+# endpoint is always there if Neo4j is running at all.
+NEO4J_HTTP="${NEO4J_HTTP_URL:-http://localhost:7474}"
+count=""
+if command -v curl >/dev/null 2>&1; then
+  response="$(curl -s --max-time 10 -X POST "$NEO4J_HTTP/db/neo4j/tx/commit" \
+      -H 'Content-Type: application/json' \
+      ${NEO4J_PASSWORD:+-u "${NEO4J_USER:-neo4j}:$NEO4J_PASSWORD"} \
+      -d '{"statements":[{"statement":"MATCH (t:Type) RETURN count(t) AS n"}]}' 2>/dev/null)"
+  count="$(printf '%s' "$response" | grep -oE '"row":\[[0-9]+\]' | grep -oE '[0-9]+' | head -1)"
+fi
+
+if [[ -z "$count" ]]; then
+  err "Could not query Neo4j at $NEO4J_HTTP to verify the graph."
+  err "The scan may have written nothing. Check by hand:"
+  err "  curl -X POST $NEO4J_HTTP/db/neo4j/tx/commit -H 'Content-Type: application/json' \\"
+  err "    -d '{\"statements\":[{\"statement\":\"MATCH (t:Type) RETURN count(t)\"}]}'"
+  failed=1
+elif [[ "$count" -gt 0 ]]; then
+  log "Graph contains $count types."
 else
-  warn "cypher-shell not on PATH — cannot verify the graph is non-empty."
-  warn "Check by hand: jqassistant-mcp.queryGraph 'MATCH (t:Type) RETURN count(t)'"
+  err "Graph is EMPTY after a scan that reported success."
+  err "Most likely causes, in order:"
+  err "  1. nothing was packaged — run 'mvn -B package -DskipTests'"
+  err "  2. jqassistant wrote to its embedded store instead of $NEO4J_HTTP"
+  err "     (check .jqassistant.yml -> jqassistant.store.uri)"
+  err "  3. the artifact was not recognised as a jar"
+  failed=1
 fi
 
 # ------------------------------------------------- drift flag is now answered

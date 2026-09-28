@@ -161,6 +161,53 @@ jobs:
           done
           echo "rules: $(grep -ch '<constraint id' jqassistant/rules/*.xml | paste -sd+ | bc) constraint(s)"
 
+  pinned-images:
+    name: No floating image tags
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every image in docker-compose.yml is pinned
+        run: |
+          set -euo pipefail
+          # Both outages in this repository's operational history came from a
+          # floating tag: structurizr/cli:latest, and neo4j:5-community which
+          # moved to a build whose entrypoint wrote a setting the server then
+          # refused. An unpinned tag is an unannounced upgrade of a dependency.
+          # Test the TAG, not the whole reference. Three bugs were found in
+          # this check by running it against real input:
+          #   · a digit immediately after the colon rejects pgvector:pg16
+          #   · a digit at the end rejects neo4j:5.26.29-community
+          #   · a digit anywhere in the line accepts neo4j:latest, because the
+          #     image NAME contains a 4
+          # So: strip to the image reference, drop the name, keep the tag.
+          # An image with no tag at all yields an empty tag and is caught too.
+          floating=$(grep -E '^\s+image:' docker-compose.yml \
+                     | sed 's/.*image:[[:space:]]*//' \
+                     | sed 's/^[^:]*//' \
+                     | sed 's/^$/:NO-TAG/' \
+                     | grep -vE '[0-9]' || true)
+          if [ -n "$floating" ]; then
+            echo "::error::unpinned image tag(s):"
+            printf '%s\n' "$floating"
+            exit 1
+          fi
+          echo "all images pinned"
+
+      - name: Every container has a healthcheck
+        run: |
+          set -euo pipefail
+          # Count inside the services: block only — the same pattern matches
+          # entries under volumes:, which have no healthcheck and never will.
+          services=$(sed -n '/^services:/,/^volumes:/p' docker-compose.yml \
+                     | grep -cE '^  [a-z][a-z0-9-]*:$')
+          checks=$(grep -c 'healthcheck:' docker-compose.yml)
+          echo "services: $services, healthchecks: $checks"
+          # digital-twin-core was the only one of nine without a healthcheck, so
+          # `docker compose ps` reported it Up while it answered on a port
+          # nothing was watching.
+          [ "$checks" -ge "$services" ] || {
+            echo "::error::a service has no healthcheck"; exit 1; }
+
   layer-naming:
     name: Persistence layer has one name
     runs-on: ubuntu-latest
