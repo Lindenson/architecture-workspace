@@ -52,6 +52,9 @@ aip_twin_url()   { echo "${PORT_DIGITAL_TWIN_URL:-http://localhost:${PORT_DIGITA
 aip_jira_url()   { echo "${PORT_JIRA_URL:-http://localhost:${PORT_JIRA_MCP:-8081}}"; }
 aip_github_url() { echo "${PORT_GITHUB_URL:-http://localhost:${PORT_GITHUB_MCP:-8082}}"; }
 aip_sonar_url()  { echo "${PORT_SONAR_URL:-http://localhost:${PORT_SONAR_MCP:-8083}}"; }
+aip_structurizr_url() { echo "${PORT_STRUCTURIZR_URL:-http://localhost:${PORT_STRUCTURIZR_MCP:-8084}}"; }
+aip_jqa_url()    { echo "${PORT_JQA_URL:-http://localhost:${PORT_JQASSISTANT_MCP:-8085}}"; }
+aip_rag_url()    { echo "${PORT_RAG_URL:-http://localhost:${PORT_RAG_MCP:-8088}}"; }
 
 # --- Authenticated GET ------------------------------------------------------
 # aip_get <url> : GET with bearer token + timeout. Echoes body on HTTP 2xx and

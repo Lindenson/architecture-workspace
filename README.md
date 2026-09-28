@@ -283,6 +283,7 @@ architecture-workspace/
 ├── architecture-tests/   ArchUnit enforcement module (template for product repos)
 ├── db/                   pgvector schema (db/init.sql)
 ├── .github/              ★ Architecture Gate CI + CODEOWNERS (the real merge gate)
+├── ONBOARDING.md         ★ clone → a snapshot that is actually true (~1 hour)
 ├── RELEASE-v2.md         ★ v2.0.0 release notes: breaking changes, migration, known limits
 ├── .mcp.json             MCP wiring (all servers; secrets via ${ENV})
 ├── .env.example          Credential template (copy to .env)
@@ -292,6 +293,12 @@ architecture-workspace/
 ---
 
 ## 🚀 Quick start
+
+> Quick start gets the servers **running**. [`ONBOARDING.md`](ONBOARDING.md)
+> gets them **telling you the truth about your project** — filling the
+> dependency graph, replacing the example C4 model and the starter knowledge,
+> and reading the answer when a slice comes back `DATA_STALE`. A fresh install
+> answers confidently about nothing until you do that.
 
 **Prerequisites:** JDK 21+, Maven 3.9+, Docker (optional), and a Claude Code client.
 

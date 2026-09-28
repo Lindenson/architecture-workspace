@@ -7,10 +7,10 @@
 #  mid-chain. Suggested cron: 02:00 daily.
 #
 #  Stages:
-#    1. jQAssistant scan      [MVP-2 placeholder] — skipped unless `jqassistant`
+#    1. jQAssistant scan      — populates the dependency graph (requires jqassistant)
 #    2. Sonar refresh         (sonar-mcp /api/sonar/state)
-#    3. Structurizr update    [MVP-2 placeholder]
-#    4. RAG reindex           [MVP-3 placeholder]
+#    3. Structurizr check     — validate the C4 model and report code-vs-model drift
+#    4. RAG reindex           — optional knowledge layer only
 #    5. Reports               (digital-twin DAILY; WEEKLY on Sundays)
 # ============================================================================
 set -euo pipefail
@@ -33,14 +33,22 @@ run_stage() {
   fi
 }
 
-# --- Stage 1: jQAssistant scan (MVP-2 placeholder) --------------------------
+# --- Stage 1: jQAssistant scan ----------------------------------------------
+#
+# This stage used to log "scan wiring not implemented yet" and return 0, so the
+# pipeline went green every night with an empty graph. Every tool built on the
+# graph then answered truthfully about nothing. A stage that cannot do its job
+# must SAY SO in the pipeline status, not report success.
 stage_jqassistant() {
   if ! command -v jqassistant >/dev/null 2>&1; then
-    log "jqassistant not on PATH — skipping (MVP-2; jqassistant-mcp planned)"
-    return 0
+    warn "jqassistant not on PATH — the dependency graph will not be refreshed."
+    warn "Blast radius, cycles and layering checks answer from a stale or empty graph."
+    return 1
   fi
-  log "jqassistant found — MVP-2 scan wiring not implemented yet; skipping body"
-  return 0
+  # SCAN_TARGETS: space-separated product repo paths. Unset scans this repo's
+  # own MCP servers, which at least keeps the chain exercised.
+  # shellcheck disable=SC2086
+  "$ROOT/automation/scan-graph.sh" ${SCAN_TARGETS:-}
 }
 
 # --- Stage 2: Sonar refresh -------------------------------------------------
@@ -50,16 +58,36 @@ stage_sonar() {
   aip_get "${url}/api/sonar/state" >/dev/null
 }
 
-# --- Stage 3: Structurizr update (MVP-2 placeholder) ------------------------
+# --- Stage 3: Structurizr model check ---------------------------------------
+#
+# Not an "update": nothing here edits workspace.dsl. The C4 model is
+# architect-owned, and drift between it and the code is REPORTED, never erased
+# by rewriting the model (.claude/OPERATING_LOOPS.md, write-rights table).
 stage_structurizr() {
-  log "Structurizr update is MVP-2 (structurizr-mcp planned) — skipping"
-  return 0
+  local url; url="$(aip_structurizr_url)"
+  log "validating the C4 model via ${url}/api/structurizr/validate"
+  aip_get "${url}/api/structurizr/validate" >/dev/null || return 1
+  log "checking code-vs-model drift via ${url}/api/structurizr/drift"
+  aip_get "${url}/api/structurizr/drift" >/dev/null || return 1
 }
 
-# --- Stage 4: RAG reindex (MVP-3 placeholder) -------------------------------
+# --- Stage 4: RAG reindex ----------------------------------------------------
+#
+# The knowledge layer is OPTIONAL and off unless KNOWLEDGE_ENABLED=true.
+# "Disabled" is a valid outcome reported as such — not a skipped stage that
+# looks like success, and not a failure either.
 stage_rag() {
-  log "RAG reindex is MVP-3 (rag-mcp + pgvector) — skipping"
-  return 0
+  if [[ "${KNOWLEDGE_ENABLED:-false}" != "true" ]]; then
+    log "knowledge layer disabled (KNOWLEDGE_ENABLED=false) — nothing to reindex"
+    return 0
+  fi
+  local url; url="$(aip_rag_url)"
+  log "reindexing project-memory and specs via ${url}/api/rag/reindex"
+  aip_get "${url}/api/rag/reindex" >/dev/null || return 1
+  # Yesterday's decisions must be retrievable in today's sessions; an index that
+  # accepted a write and returns nothing looks exactly like one that worked.
+  log "verifying retrieval answers after reindex"
+  aip_get "${url}/api/rag/state" >/dev/null || return 1
 }
 
 # --- Stage 5: Reports -------------------------------------------------------

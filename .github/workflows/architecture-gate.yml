@@ -120,6 +120,47 @@ jobs:
           [ $fail -eq 0 ] && echo "every documented tool name resolves to an implementation"
           exit $fail
 
+  automation-honesty:
+    name: No stage reports success while skipping its work
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scripts parse, are executable, and do not fake success
+        run: |
+          set -euo pipefail
+          fail=0
+          for f in automation/*.sh; do
+            [ -x "$f" ] || { echo "::error::$f is not executable"; fail=1; }
+            bash -n "$f" || { echo "::error::$f has a syntax error"; fail=1; }
+          done
+          # The nightly graph scan once logged "scan wiring not implemented yet"
+          # and returned 0, so the pipeline went green every night with an empty
+          # graph and every tool built on it answered truthfully about nothing.
+          # A stage that cannot do its job must fail, not skip quietly.
+          # NB: strip the "file:line:" prefix before filtering comments — with it
+          # in place the ^# test never matches and the check passes on anything.
+          offenders=$(grep -rn -e 'not implemented yet' -e 'skipping body' automation/*.sh \
+                      | sed 's/^[^:]*:[0-9]*:[[:space:]]*//' | grep -v '^#' || true)
+          if [ -n "$offenders" ]; then
+            echo "::error::a stage admits it does nothing outside a comment:"
+            printf '%s\n' "$offenders"
+            fail=1
+          fi
+          exit $fail
+
+      - name: jQAssistant rules exist and are valid XML
+        run: |
+          set -euo pipefail
+          # architecture/constraints/*.md without a machine counterpart is
+          # documentation, not governance.
+          ls jqassistant/rules/*.xml >/dev/null 2>&1 || {
+            echo "::error::no rules in jqassistant/rules — constraints have no machine counterpart"; exit 1; }
+          for f in jqassistant/rules/*.xml; do
+            python3 -c "import xml.etree.ElementTree as ET,sys; ET.parse('$f')" || {
+              echo "::error::$f is not valid XML"; exit 1; }
+          done
+          echo "rules: $(grep -ch '<constraint id' jqassistant/rules/*.xml | paste -sd+ | bc) constraint(s)"
+
   layer-naming:
     name: Persistence layer has one name
     runs-on: ubuntu-latest
