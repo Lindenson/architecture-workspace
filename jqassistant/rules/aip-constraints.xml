@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Machine counterparts to architecture/constraints/*.md.
+
+  A constraint that exists only as prose is documentation, not governance. Each
+  rule below names the document it enforces, so when one changes the other is
+  obviously due.
+
+  PARAMETERISE BEFORE USE. The package patterns default to this repository's own
+  layout (com.wolper.aip.*). Pointing the platform at a product means changing
+  them — see ONBOARDING.md. A constraint whose pattern matches nothing PASSES,
+  silently, which is exactly how the ArchUnit layer rule in this repo enforced
+  nothing for months.
+-->
+<jqassistant-rules xmlns="http://schema.jqassistant.org/rule/v1.10"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+    <!-- ===================================================== concepts ===== -->
+
+    <concept id="aip:ApiLayer">
+        <description>Types in an api/controller package. Adjust the pattern for your product.</description>
+        <cypher><![CDATA[
+            MATCH (t:Type)
+            WHERE t.fqn =~ '.*\\.(api|controller|web)\\..*'
+            SET t:Api
+            RETURN count(t) AS apiTypes
+        ]]></cypher>
+    </concept>
+
+    <concept id="aip:ServiceLayer">
+        <description>Types in a service package.</description>
+        <cypher><![CDATA[
+            MATCH (t:Type)
+            WHERE t.fqn =~ '.*\\.service\\..*'
+            SET t:Service
+            RETURN count(t) AS serviceTypes
+        ]]></cypher>
+    </concept>
+
+    <concept id="aip:PersistenceLayer">
+        <description>
+            Types in the persistence layer. One name only — `repository`.
+            Three names for this layer (repository / store / persistence) is what
+            made the ArchUnit layer rule match nothing and pass vacuously; CI now
+            fails a module that reintroduces the others.
+        </description>
+        <cypher><![CDATA[
+            MATCH (t:Type)
+            WHERE t.fqn =~ '.*\\.repository\\..*'
+            SET t:Persistence
+            RETURN count(t) AS persistenceTypes
+        ]]></cypher>
+    </concept>
+
+    <!-- =================================================== constraints ===== -->
+
+    <constraint id="aip:ApiMustNotReachPersistence">
+        <requiresConcept refId="aip:ApiLayer"/>
+        <requiresConcept refId="aip:PersistenceLayer"/>
+        <description>
+            Enforces architecture/constraints/layering.md — a controller must go
+            through a service. Skipping the service layer is where transaction
+            boundaries and authorization checks get lost.
+        </description>
+        <cypher><![CDATA[
+            MATCH (api:Api)-[:DEPENDS_ON]->(p:Persistence)
+            RETURN api.fqn AS controller, p.fqn AS repository
+        ]]></cypher>
+    </constraint>
+
+    <constraint id="aip:NoPackageCycles">
+        <description>
+            Enforces architecture/constraints/layering.md — package cycles.
+            A cycle means the two packages are one module pretending to be two:
+            neither can be understood, tested or extracted alone.
+        </description>
+        <cypher><![CDATA[
+            MATCH (p1:Package)-[:DEPENDS_ON]->(p2:Package),
+                  (p2)-[:DEPENDS_ON]->(p1)
+            WHERE p1.fqn < p2.fqn
+            RETURN p1.fqn AS package, p2.fqn AS cyclicWith
+        ]]></cypher>
+    </constraint>
+
+    <constraint id="aip:NoCrossContextPersistenceAccess">
+        <requiresConcept refId="aip:PersistenceLayer"/>
+        <description>
+            Enforces architecture/constraints/integration.md — one bounded
+            context must not read another's tables. Cross-context access through
+            the database is invisible to every API contract and survives every
+            refactor of the owning service.
+
+            The pattern below compares the segment before `.repository.`; set it
+            to your own context roots.
+        </description>
+        <cypher><![CDATA[
+            MATCH (t:Type)-[:DEPENDS_ON]->(p:Persistence)
+            WHERE NOT t:Persistence
+              AND split(t.fqn, '.repository.')[0] <> split(p.fqn, '.repository.')[0]
+              AND t.fqn =~ '.*\\.(service|api)\\..*'
+            RETURN t.fqn AS accessor, p.fqn AS foreignRepository
+        ]]></cypher>
+    </constraint>
+
+    <constraint id="aip:NoGodClasses">
+        <description>
+            Types with an unusually large number of outgoing dependencies. Not an
+            error by itself — a finding. A class that depends on thirty others is
+            usually several classes that were never separated, and it is the one
+            that breaks whenever anything changes.
+        </description>
+        <cypher><![CDATA[
+            MATCH (t:Type)-[:DEPENDS_ON]->(other:Type)
+            WITH t, count(DISTINCT other) AS fanOut
+            WHERE fanOut > 30
+            RETURN t.fqn AS type, fanOut
+            ORDER BY fanOut DESC
+        ]]></cypher>
+    </constraint>
+
+    <!-- ======================================================== group ===== -->
+
+    <group id="aip:default">
+        <includeConstraint refId="aip:ApiMustNotReachPersistence"/>
+        <includeConstraint refId="aip:NoPackageCycles"/>
+        <includeConstraint refId="aip:NoCrossContextPersistenceAccess"/>
+        <includeConstraint refId="aip:NoGodClasses"/>
+    </group>
+
+</jqassistant-rules>

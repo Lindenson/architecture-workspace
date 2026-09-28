@@ -10,6 +10,24 @@ jqassistant/
 └── jqassistant.yml Scan configuration (see config/jqassistant.config.example.yml)
 ```
 
+## Filling the graph
+
+```bash
+automation/scan-graph.sh                      # this repo's own servers (self-check)
+automation/scan-graph.sh /path/to/product     # a real target
+```
+
+The script builds nothing: jQAssistant reads **bytecode**, so an unbuilt project
+scans to an empty graph with no error. It checks for `*/target/classes` first
+and says so rather than reporting success over nothing — and it verifies the
+graph is non-empty afterwards instead of trusting the scanner's exit code.
+
+`rules/aip-constraints.xml` holds the machine counterparts to
+`architecture/constraints/*.md`. **Parameterise the package patterns before
+use**: a constraint whose pattern matches nothing passes silently, which is
+exactly how the ArchUnit layer rule in this repository enforced nothing while
+looking like governance.
+
 ## Scanning a product repository
 
 ```bash
